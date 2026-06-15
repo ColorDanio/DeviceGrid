@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -260,6 +261,22 @@ func (h *NodeHandler) Trust(c *gin.Context) {
 		"status":  "trusted",
 		"message": "SSH 密钥授信通道建立成功",
 	})
+
+	// After trust, refresh geo data if missing
+	if h.enableGeoLookup && node.CountryCode == "" {
+		go func() {
+			if geo, err := nodepkg.LookupGeo(node.Host); err == nil && geo != nil {
+				updated, _ := h.repos.Nodes().GetByID(context.Background(), nodeID)
+				if updated != nil {
+					updated.Country = geo.Country
+					updated.CountryCode = geo.CountryCode
+					updated.Region = geo.City
+					updated.ISP = geo.ISP
+					h.repos.Nodes().Update(context.Background(), updated)
+				}
+			}
+		}()
+	}
 }
 
 func (h *NodeHandler) DeployAgent(c *gin.Context) {
@@ -306,6 +323,42 @@ func (h *NodeHandler) Metrics(c *gin.Context) {
 		return
 	}
 	OK(c, metrics)
+}
+
+func (h *NodeHandler) RefreshGeo(c *gin.Context) {
+	nodeID := c.Param("id")
+	node, err := h.repos.Nodes().GetByID(c.Request.Context(), nodeID)
+	if err != nil {
+		NotFound(c, "node not found")
+		return
+	}
+
+	if !h.enableGeoLookup {
+		OK(c, gin.H{"message": "geo lookup disabled (internal network mode)"})
+		return
+	}
+
+	geo, err := nodepkg.LookupGeo(node.Host)
+	if err != nil || geo == nil {
+		Error(c, http.StatusBadGateway, "geo lookup failed: "+err.Error())
+		return
+	}
+
+	node.Country = geo.Country
+	node.CountryCode = geo.CountryCode
+	node.Region = geo.City
+	node.ISP = geo.ISP
+	if err := h.repos.Nodes().Update(c.Request.Context(), node); err != nil {
+		InternalError(c, "update node geo: "+err.Error())
+		return
+	}
+
+	OK(c, gin.H{
+		"country":      geo.Country,
+		"country_code": geo.CountryCode,
+		"region":       geo.City,
+		"isp":          geo.ISP,
+	})
 }
 
 func (h *NodeHandler) TopProcesses(c *gin.Context) {

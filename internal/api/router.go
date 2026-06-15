@@ -36,6 +36,7 @@ type Router struct {
 	sshMgr       *ssh.Manager
 	metricsCache *node.MetricsCache
 	network      config.NetworkConfig
+	corsOrigins  []string
 }
 
 func NewRouter(
@@ -60,6 +61,10 @@ func NewRouter(
 	}
 }
 
+func (r *Router) SetCORSOrigins(origins []string) {
+	r.corsOrigins = origins
+}
+
 func (r *Router) Setup(mode string) *gin.Engine {
 	if mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -70,10 +75,15 @@ func (r *Router) Setup(mode string) *gin.Engine {
 	engine.Use(gin.LoggerWithConfig(gin.LoggerConfig{
 		SkipPaths: []string{"/healthz", "/api/health"},
 	}))
+	engine.Use(AuditLog())
 
 	if mode == "debug" {
+		origins := []string{"http://localhost:5173", "http://localhost:4173"}
+		if len(r.corsOrigins) > 0 {
+			origins = r.corsOrigins
+		}
 		engine.Use(cors.New(cors.Config{
-			AllowOrigins:     []string{"http://localhost:5173", "http://localhost:4173"},
+			AllowOrigins:     origins,
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 			ExposeHeaders:    []string{"Content-Length"},
@@ -95,11 +105,12 @@ func (r *Router) Setup(mode string) *gin.Engine {
 
 		authGroup := api.Group("/auth")
 		{
-			authGroup.POST("/login", authHandler.Login)
+			authGroup.POST("/login", RateLimit(10, time.Minute), authHandler.Login)
 		}
 
 		protected := api.Group("")
 		protected.Use(auth.AuthRequired(r.jm))
+		protected.Use(RateLimit(200, time.Minute))
 		{
 			authGroup := protected.Group("/auth")
 			{
@@ -196,6 +207,7 @@ func (r *Router) registerNodeRoutes(rg *gin.RouterGroup) {
 		nodes.GET("/:id/metrics", h.Metrics)
 		nodes.GET("/:id/processes", h.TopProcesses)
 		nodes.GET("/:id/logins", h.LoginHistory)
+		nodes.POST("/:id/refresh-geo", h.RefreshGeo)
 	}
 
 	// Network checks — conditional based on network config
