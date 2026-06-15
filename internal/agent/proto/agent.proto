@@ -1,0 +1,227 @@
+syntax = "proto3";
+
+package agent;
+
+option go_package = "github.com/michael/device_grid/internal/agent/proto;agentpb";
+
+service AgentService {
+  rpc Ping(PingRequest) returns (PingResponse);
+  rpc Exec(ExecRequest) returns (stream ExecChunk);
+  rpc Upload(UploadRequest) returns (UploadResponse);
+  rpc Download(DownloadRequest) returns (stream Chunk);
+  rpc SystemInfo(Empty) returns (SystemInfoResponse);
+  rpc PTY(PTYRequest) returns (stream PTYChunk);
+}
+
+// TunnelService is used by agents to establish persistent reverse connections
+service TunnelService {
+  // Connect establishes a bidirectional stream. The agent connects TO the server
+  // and keeps this stream alive. The server sends commands, the agent responds.
+  rpc Connect(stream ClientMessage) returns (stream ServerMessage);
+}
+
+message Empty {}
+
+message PingRequest {}
+message PingResponse {
+  string agent_version = 1;
+  int64 timestamp = 2;
+}
+
+message ExecRequest {
+  string command = 1;
+  uint32 timeout_seconds = 2;
+}
+
+message ExecChunk {
+  string stream = 1;
+  bytes data = 2;
+  int32 exit_code = 3;
+  bool eof = 4;
+}
+
+message UploadRequest {
+  string remote_path = 1;
+  bytes content = 2;
+  uint32 mode = 3;
+}
+message UploadResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DownloadRequest {
+  string remote_path = 1;
+}
+
+message Chunk {
+  bytes data = 1;
+  bool eof = 2;
+}
+
+message SystemInfoResponse {
+  string hostname = 1;
+  string os = 2;
+  string os_version = 3;
+  string arch = 4;
+  string kernel = 5;
+  uint64 cpu_cores = 6;
+  double cpu_usage = 7;
+  uint64 mem_total = 8;
+  uint64 mem_used = 9;
+  uint64 disk_total = 10;
+  uint64 disk_used = 11;
+  string docker_version = 12;
+  double load_avg_1 = 13;
+  uint64 uptime = 14;
+}
+
+message PTYRequest {
+  uint32 cols = 1;
+  uint32 rows = 2;
+  string term = 3;
+}
+
+message PTYChunk {
+  bytes stdout = 1;
+  bytes stderr = 2;
+  bool closed = 3;
+}
+
+// ===== Tunnel messages =====
+
+message ClientMessage {
+  string node_id = 1;
+  string node_name = 2;
+  oneof payload {
+    MetricsReport metrics = 3;
+    CommandResponse command_response = 4;
+    PtyOutput pty_output = 5;
+    Heartbeat heartbeat = 6;
+    FileListResponse file_list = 7;
+    FileData file_data = 8;
+    FileInfoResponse file_info = 9;
+  }
+}
+
+message ServerMessage {
+  oneof payload {
+    CommandRequest command_request = 1;
+    PtyInput pty_input = 2;
+    PtyResize pty_resize = 3;
+    PtyClose pty_close = 4;
+    FileListRequest file_list_request = 5;
+    FileUploadRequest file_upload_request = 6;
+    FileDownloadRequest file_download_request = 7;
+    FileInfoRequest file_info_request = 8;
+  }
+}
+
+message MetricsReport {
+  double cpu_usage = 1;
+  uint64 cpu_cores = 2;
+  double load_avg_1 = 3;
+  double load_avg_5 = 4;
+  double load_avg_15 = 5;
+  uint64 mem_total = 6;
+  uint64 mem_used = 7;
+  uint64 swap_total = 8;
+  uint64 swap_used = 9;
+  uint64 disk_total = 10;
+  uint64 disk_used = 11;
+  uint64 uptime = 12;
+  string docker_version = 13;
+  string os = 14;
+  string arch = 15;
+}
+
+message Heartbeat {
+  int64 timestamp = 1;
+}
+
+message CommandRequest {
+  string request_id = 1;
+  string command = 2;
+  uint32 timeout_seconds = 3;
+}
+
+message CommandResponse {
+  string request_id = 1;
+  string stdout = 2;
+  string stderr = 3;
+  int32 exit_code = 4;
+  bool done = 5;
+}
+
+message PtyOutput {
+  string session_id = 1;
+  bytes data = 2;
+  bool closed = 3;
+}
+
+message PtyInput {
+  string session_id = 1;
+  bytes data = 2;
+}
+
+message PtyResize {
+  string session_id = 1;
+  uint32 cols = 2;
+  uint32 rows = 3;
+}
+
+message PtyClose {
+  string session_id = 1;
+}
+
+message FileListRequest {
+  string request_id = 1;
+  string path = 2;
+}
+
+message FileListResponse {
+  string request_id = 1;
+  repeated FileEntry entries = 2;
+  string error = 3;
+}
+
+message FileEntry {
+  string name = 1;
+  string path = 2;
+  bool is_dir = 3;
+  int64 size = 4;
+  int64 mod_time = 5;
+  string mode = 6;
+}
+
+message FileUploadRequest {
+  string request_id = 1;
+  string remote_path = 2;
+  bytes content = 3;
+  uint32 mode = 4;
+}
+
+message FileDownloadRequest {
+  string request_id = 1;
+  string remote_path = 2;
+}
+
+message FileData {
+  string request_id = 1;
+  bytes data = 2;
+  bool eof = 3;
+  string error = 4;
+}
+
+message FileInfoRequest {
+  string request_id = 1;
+  string path = 2;
+}
+
+message FileInfoResponse {
+  string request_id = 1;
+  bool exists = 2;
+  bool is_dir = 3;
+  int64 size = 4;
+  string error = 5;
+}
