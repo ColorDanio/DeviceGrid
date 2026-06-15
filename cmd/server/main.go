@@ -91,7 +91,7 @@ func main() {
 	}
 
 	// Backfill geo data for existing nodes (async, non-blocking)
-	go api.BackfillGeo(repos)
+	go api.BackfillGeo(repos, cfg.Network.EnableGeoLookup)
 
 	sshMgr := ssh.NewManager(repos, enc, ssh.Config{
 		ConnectTimeout:    cfg.SSH.ConnectTimeout,
@@ -137,7 +137,7 @@ func main() {
 	defer metricsCache.Stop()
 
 	jm := auth.NewJWTManager(cfg.Auth.JWTSectet, cfg.Auth.JWTExpire)
-	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache)
+	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network)
 	engine := router.Setup(cfg.Server.Mode)
 
 	web.RegisterStaticFiles(engine, cfg.IsDebug())

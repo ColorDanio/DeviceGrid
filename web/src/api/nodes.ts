@@ -127,6 +127,20 @@ export async function getLoginHistory(id: string): Promise<string> {
   return data.data.output
 }
 
+export async function getNetworkConfig(): Promise<NetworkFeatures> {
+  const { data } = await client.get('/network/config')
+  return data.data
+}
+
+export interface NetworkFeatures {
+  environment: string
+  enable_geo: boolean
+  enable_streaming: boolean
+  enable_ai: boolean
+  enable_connectivity: boolean
+  enable_route: boolean
+}
+
 export interface StreamingResult {
   name: string
   status: string

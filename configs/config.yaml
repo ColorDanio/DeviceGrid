@@ -8,7 +8,7 @@ auth:
   jwt_expire: "24h"
 
 crypto:
-  master_key: "" # Set via DG_CRYPTO_MASTER_KEY env var, auto-generated and persisted on first run
+  master_key: "1a83301a1400e79b35560ea528eb113a861bd2e8bc6c1980b14ef2b9373a1985"
 
 database:
   driver: "sqlite" # sqlite | mongodb
@@ -40,3 +40,18 @@ ssh:
 deploy:
   max_concurrent: 20
   timeout: "30m"
+
+network:
+  environment: "public"  # public | internal
+  # When set to "internal", all public-network features are disabled:
+  # - IP geo lookup
+  # - Streaming unlock detection
+  # - AI service availability
+  # - Global connectivity test
+  # - China ISP return route test
+  # You can override individual features by setting them to true/false:
+  # enable_geo: false
+  # enable_streaming: false
+  # enable_ai: false
+  # enable_connectivity: false
+  # enable_route: false

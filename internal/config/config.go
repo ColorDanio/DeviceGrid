@@ -18,6 +18,7 @@ type Config struct {
 	Agent    AgentConfig    `mapstructure:"agent"`
 	SSH      SSHConfig      `mapstructure:"ssh"`
 	Deploy   DeployConfig   `mapstructure:"deploy"`
+	Network  NetworkConfig  `mapstructure:"network"`
 }
 
 type ServerConfig struct {
@@ -77,6 +78,34 @@ type DeployConfig struct {
 	Timeout       time.Duration `mapstructure:"timeout"`
 }
 
+type NetworkConfig struct {
+	Environment     string `mapstructure:"environment"`      // "public" (default) | "internal"
+	EnableGeoLookup bool   `mapstructure:"enable_geo"`       // IP geo lookup (auto: true for public, false for internal)
+	EnableStreamingCheck bool `mapstructure:"enable_streaming"` // Streaming unlock detection
+	EnableAICheck   bool   `mapstructure:"enable_ai"`        // AI service availability
+	EnableConnectivityTest bool `mapstructure:"enable_connectivity"` // Global connectivity test
+	EnableReturnRoute bool  `mapstructure:"enable_route"`    // China ISP return route test
+}
+
+func (n *NetworkConfig) IsInternal() bool { return n.Environment == "internal" }
+
+// ApplyDefaults sets smart defaults based on environment
+func (n *NetworkConfig) ApplyDefaults() {
+	if n.Environment == "" {
+		n.Environment = "public"
+	}
+	internal := n.IsInternal()
+	// Only set if not explicitly configured (zero value)
+	if !n.EnableGeoLookup && !n.EnableStreamingCheck && !n.EnableAICheck && !n.EnableConnectivityTest && !n.EnableReturnRoute {
+		// All zero → apply environment-based defaults
+		n.EnableGeoLookup = !internal
+		n.EnableStreamingCheck = !internal
+		n.EnableAICheck = !internal
+		n.EnableConnectivityTest = !internal
+		n.EnableReturnRoute = !internal
+	}
+}
+
 func Load(path string) (*Config, error) {
 	v := viper.New()
 
@@ -99,6 +128,8 @@ func Load(path string) (*Config, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
+
+	cfg.Network.ApplyDefaults()
 
 	if cfg.Crypto.MasterKey == "" {
 		cfg.Crypto.MasterKey = os.Getenv("DG_CRYPTO_MASTER_KEY")
@@ -135,6 +166,8 @@ func setDefaults(v *viper.Viper) {
 
 	v.SetDefault("deploy.max_concurrent", 20)
 	v.SetDefault("deploy.timeout", "30m")
+
+	v.SetDefault("network.environment", "public")
 }
 
 func (c *Config) validate() error {

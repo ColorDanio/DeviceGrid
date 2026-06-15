@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/michael/device_grid/internal/auth"
+	"github.com/michael/device_grid/internal/config"
 	"github.com/michael/device_grid/internal/crypto"
 	"github.com/michael/device_grid/internal/deploy"
 	"github.com/michael/device_grid/internal/node"
@@ -34,6 +35,7 @@ type Router struct {
 	hub          *ws.Hub
 	sshMgr       *ssh.Manager
 	metricsCache *node.MetricsCache
+	network      config.NetworkConfig
 }
 
 func NewRouter(
@@ -44,6 +46,7 @@ func NewRouter(
 	hub *ws.Hub,
 	sshMgr *ssh.Manager,
 	metricsCache *node.MetricsCache,
+	network config.NetworkConfig,
 ) *Router {
 	return &Router{
 		repos:        repos,
@@ -53,6 +56,7 @@ func NewRouter(
 		hub:          hub,
 		sshMgr:       sshMgr,
 		metricsCache: metricsCache,
+		network:      network,
 	}
 }
 
@@ -177,7 +181,7 @@ func (r *Router) registerWSRoutes(engine *gin.Engine) {
 }
 
 func (r *Router) registerNodeRoutes(rg *gin.RouterGroup) {
-	h := NewNodeHandler(r.repos, r.enc, r.transport, r.sshMgr, r.metricsCache)
+	h := NewNodeHandler(r.repos, r.enc, r.transport, r.sshMgr, r.metricsCache, r.network.EnableGeoLookup)
 	nodes := rg.Group("/nodes")
 	{
 		nodes.GET("", h.List)
@@ -194,17 +198,39 @@ func (r *Router) registerNodeRoutes(rg *gin.RouterGroup) {
 		nodes.GET("/:id/logins", h.LoginHistory)
 	}
 
-	// Network checks
+	// Network checks — conditional based on network config
 	nc := NewNetCheckHandler(r.repos, r.transport)
 	{
-		nodes.GET("/:id/streaming", nc.StreamingCheck)
-		nodes.GET("/:id/ai-check", nc.AICheck)
-		nodes.GET("/:id/connectivity", nc.ConnectivityTest)
-		nodes.GET("/:id/return-route", nc.ReturnRouteTest)
+		if r.network.EnableStreamingCheck {
+			nodes.GET("/:id/streaming", nc.StreamingCheck)
+		}
+		if r.network.EnableAICheck {
+			nodes.GET("/:id/ai-check", nc.AICheck)
+		}
+		if r.network.EnableConnectivityTest {
+			nodes.GET("/:id/connectivity", nc.ConnectivityTest)
+		}
+		if r.network.EnableReturnRoute {
+			nodes.GET("/:id/return-route", nc.ReturnRouteTest)
+		}
+	}
+
+	// Network feature flags endpoint
+	protected := rg
+	{
+		protected.GET("/network/config", func(c *gin.Context) {
+			OK(c, gin.H{
+				"environment":         r.network.Environment,
+				"enable_geo":          r.network.EnableGeoLookup,
+				"enable_streaming":    r.network.EnableStreamingCheck,
+				"enable_ai":           r.network.EnableAICheck,
+				"enable_connectivity": r.network.EnableConnectivityTest,
+				"enable_route":        r.network.EnableReturnRoute,
+			})
+		})
 	}
 
 	imp := NewImportHandler(r.repos, r.enc)
-	protected := rg
 	{
 		protected.GET("/nodes/import/template", imp.DownloadTemplate)
 		protected.POST("/nodes/import", imp.Import)

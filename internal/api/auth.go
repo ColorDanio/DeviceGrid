@@ -106,7 +106,10 @@ func EnsureDefaultUser(repos repo.Repositories) error {
 }
 
 // BackfillGeo populates geo info for nodes that don't have it yet.
-func BackfillGeo(repos repo.Repositories) {
+func BackfillGeo(repos repo.Repositories, enableGeo bool) {
+	if !enableGeo {
+		return
+	}
 	ctx := context.Background()
 	nodes, err := repos.Nodes().List(ctx, model.NodeFilter{})
 	if err != nil {

@@ -16,15 +16,16 @@ import (
 )
 
 type NodeHandler struct {
-	repos        repo.Repositories
-	enc          *crypto.Encryptor
-	transport    *transport.Manager
-	sshMgr       *ssh.Manager
-	metricsCache *nodepkg.MetricsCache
+	repos           repo.Repositories
+	enc             *crypto.Encryptor
+	transport       *transport.Manager
+	sshMgr          *ssh.Manager
+	metricsCache    *nodepkg.MetricsCache
+	enableGeoLookup bool
 }
 
-func NewNodeHandler(repos repo.Repositories, enc *crypto.Encryptor, tm *transport.Manager, sshMgr *ssh.Manager, mc *nodepkg.MetricsCache) *NodeHandler {
-	return &NodeHandler{repos: repos, enc: enc, transport: tm, sshMgr: sshMgr, metricsCache: mc}
+func NewNodeHandler(repos repo.Repositories, enc *crypto.Encryptor, tm *transport.Manager, sshMgr *ssh.Manager, mc *nodepkg.MetricsCache, enableGeo bool) *NodeHandler {
+	return &NodeHandler{repos: repos, enc: enc, transport: tm, sshMgr: sshMgr, metricsCache: mc, enableGeoLookup: enableGeo}
 }
 
 type createNodeRequest struct {
@@ -114,11 +115,13 @@ func (h *NodeHandler) Create(c *gin.Context) {
 		Tags:          req.Tags,
 	}
 
-	if geo, err := nodepkg.LookupGeo(req.Host); err == nil && geo != nil {
-		node.Country = geo.Country
-		node.CountryCode = geo.CountryCode
-		node.Region = geo.City
-		node.ISP = geo.ISP
+	if h.enableGeoLookup {
+		if geo, err := nodepkg.LookupGeo(req.Host); err == nil && geo != nil {
+			node.Country = geo.Country
+			node.CountryCode = geo.CountryCode
+			node.Region = geo.City
+			node.ISP = geo.ISP
+		}
 	}
 
 	if err := h.repos.Nodes().Create(c.Request.Context(), node); err != nil {

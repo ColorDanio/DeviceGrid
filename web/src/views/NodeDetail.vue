@@ -93,7 +93,7 @@
         </div>
 
         <!-- Streaming Unlock Check -->
-        <div class="dg-card s-card">
+        <div class="dg-card s-card" v-if="netFeatures.enable_streaming">
           <div class="card-header-row">
             <h3 class="card-title">流媒体解锁</h3>
             <div class="header-right-group">
@@ -117,7 +117,7 @@
         </div>
 
         <!-- AI Service Check -->
-        <div class="dg-card s-card">
+        <div class="dg-card s-card" v-if="netFeatures.enable_ai">
           <div class="card-header-row">
             <h3 class="card-title">AI 服务可用性</h3>
             <div class="header-right-group">
@@ -141,7 +141,7 @@
         </div>
 
         <!-- Connectivity Test -->
-        <div class="dg-card s-card">
+        <div class="dg-card s-card" v-if="netFeatures.enable_connectivity">
           <div class="card-header-row">
             <h3 class="card-title">网络联通性</h3>
             <div class="header-right-group">
@@ -162,7 +162,7 @@
         </div>
 
         <!-- Return Route (三网回程) -->
-        <div class="dg-card s-card">
+        <div class="dg-card s-card" v-if="netFeatures.enable_route">
           <div class="card-header-row">
             <h3 class="card-title">三网回程路由</h3>
             <div class="header-right-group">
@@ -240,7 +240,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
-import { getNode, getMetrics, getTopProcesses, getLoginHistory, checkStreaming, checkAI, checkConnectivity, checkReturnRoute, type Node, type NodeMetrics, type StreamingResult, type ConnectivityResult, type RouteHop } from '@/api/nodes'
+import { getNode, getMetrics, getTopProcesses, getLoginHistory, checkStreaming, checkAI, checkConnectivity, checkReturnRoute, getNetworkConfig, type Node, type NodeMetrics, type StreamingResult, type ConnectivityResult, type RouteHop, type NetworkFeatures } from '@/api/nodes'
 
 const route = useRoute()
 const node = ref<Node | null>(null)
@@ -262,6 +262,7 @@ const connectivityLoading = ref(false)
 const routeResults = ref<RouteHop[]>([])
 const routeTime = ref('')
 const routeLoading = ref(false)
+const netFeatures = ref<NetworkFeatures>({ environment: 'public', enable_geo: true, enable_streaming: true, enable_ai: true, enable_connectivity: true, enable_route: true })
 let metricTimer: ReturnType<typeof setInterval> | null = null
 
 function statusLabel(s: string) { return ({ online: '在线', offline: '离线', untrusted: '未授信', error: '异常' } as Record<string,string>)[s] || s }
@@ -367,6 +368,7 @@ function ispClass(isp: string) { if (isp.includes('电信')) return 'ct'; if (is
 onMounted(() => {
   loadData()
   loadCachedChecks()
+  getNetworkConfig().then(c => { netFeatures.value = c }).catch(() => {})
   metricTimer = setInterval(() => { loadMetrics() }, 10000)
 })
 onBeforeUnmount(() => { if (metricTimer) clearInterval(metricTimer) })
