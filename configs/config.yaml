@@ -1,0 +1,42 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "debug" # debug | release
+
+auth:
+  jwt_secret: "" # Set via DG_AUTH_JWT_SECRET env var, auto-generated if empty in debug mode
+  jwt_expire: "24h"
+
+crypto:
+  master_key: "" # Set via DG_CRYPTO_MASTER_KEY env var, auto-generated and persisted on first run
+
+database:
+  driver: "sqlite" # sqlite | mongodb
+  sqlite:
+    path: "./data/device_grid.db"
+  mongodb:
+    uri: "mongodb://localhost:27017"
+    database: "device_grid"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+agent:
+  grpc_port: 9090
+  ca_cert: "./configs/certs/ca.crt"
+  server_cert: "./configs/certs/server.crt"
+  server_key: "./configs/certs/server.key"
+  agent_cert: "./configs/certs/agent.crt"
+  agent_key: "./configs/certs/agent.key"
+
+ssh:
+  key_algorithm: "ed25519" # ed25519 | rsa
+  connect_timeout: "10s"
+  keepalive_interval: "30s"
+  max_connections: 50
+
+deploy:
+  max_concurrent: 20
+  timeout: "30m"

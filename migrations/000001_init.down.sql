@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS containers;
+DROP TABLE IF EXISTS deploy_results;
+DROP TABLE IF EXISTS deploy_tasks;
+DROP TABLE IF EXISTS clusters;
+DROP TABLE IF EXISTS nodes;
+DROP TABLE IF EXISTS users;
