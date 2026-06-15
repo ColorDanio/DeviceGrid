@@ -1,0 +1,186 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  GO_VERSION: '1.22'
+  NODE_VERSION: '20'
+
+jobs:
+  # ===== Backend: lint + test =====
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -v -race -timeout 120s ./...
+
+      - name: Build server
+        run: go build -o bin/devicegrid-server ./cmd/server
+
+      - name: Build agent
+        run: go build -o bin/devicegrid-agent ./cmd/agent
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ github.sha }}
+          path: bin/
+          retention-days: 7
+
+  # ===== Frontend: typecheck + build =====
+  frontend:
+    name: Frontend (Vue)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci || npm install
+
+      - name: Type check
+        run: cd web && npx vue-tsc --noEmit
+
+      - name: Build
+        run: cd web && npm run build
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: web/dist/
+          retention-days: 7
+
+  # ===== Release: single binary + deb =====
+  release:
+    name: Release Package
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend deps
+        run: cd web && npm ci || npm install
+
+      - name: Build frontend
+        run: cd web && npm run build
+
+      - name: Embed frontend
+        run: |
+          rm -rf internal/web/dist
+          cp -r web/dist internal/web/dist
+
+      - name: Build server binary
+        run: go build -trimpath -ldflags "-s -w" -o bin/devicegrid-server ./cmd/server
+
+      - name: Build agent binary
+        run: go build -trimpath -ldflags "-s -w" -o bin/devicegrid-agent ./cmd/agent
+
+      - name: Create deb package
+        run: |
+          mkdir -p dist/deb/DEBIAN dist/deb/usr/local/bin dist/deb/usr/local/lib/devicegrid/configs dist/deb/etc/systemd/system
+          cp bin/devicegrid-server dist/deb/usr/local/bin/
+          cp bin/devicegrid-agent dist/deb/usr/local/bin/
+          cp configs/config.yaml dist/deb/usr/local/lib/devicegrid/configs/
+          cat > dist/deb/DEBIAN/control << 'EOF'
+          Package: devicegrid
+          Version: 1.0.0
+          Architecture: amd64
+          Maintainer: DeviceGrid <noreply@devicegrid.dev>
+          Depends: libc6
+          Description: DeviceGrid - Server Fleet Management Platform
+          Section: admin
+          Priority: optional
+          EOF
+          cat > dist/deb/DEBIAN/postinst << 'EOF2'
+          #!/bin/bash
+          set -e
+          mkdir -p /var/lib/devicegrid/data /etc/devicegrid
+          [ ! -f /etc/devicegrid/config.yaml ] && cp /usr/local/lib/devicegrid/configs/config.yaml /etc/devicegrid/config.yaml
+          systemctl daemon-reload 2>/dev/null || true
+          echo "DeviceGrid installed. Config: /etc/devicegrid/config.yaml"
+          EOF2
+          chmod 755 dist/deb/DEBIAN/postinst
+          cat > dist/deb/etc/systemd/system/devicegrid.service << 'EOF3'
+          [Unit]
+          Description=DeviceGrid Server
+          After=network.target
+          [Service]
+          Type=simple
+          ExecStart=/usr/local/bin/devicegrid-server
+          Environment=DG_CONFIG_PATH=/etc/devicegrid/config.yaml
+          WorkingDirectory=/var/lib/devicegrid
+          Restart=always
+          RestartSec=5
+          [Install]
+          WantedBy=multi-user.target
+          EOF3
+          dpkg-deb --build --root-owner-group dist/deb dist/devicegrid-1.0.0-amd64.deb
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            bin/devicegrid-server
+            bin/devicegrid-agent
+            dist/*.deb
+          retention-days: 30
+
+  # ===== Cross-compile agent for arm64 =====
+  agent-arm64:
+    name: Agent (ARM64)
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build agent for linux/arm64
+        run: GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o bin/devicegrid-agent-linux-arm64 ./cmd/agent
+
+      - name: Upload arm64 agent
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-arm64-${{ github.sha }}
+          path: bin/devicegrid-agent-linux-arm64
+          retention-days: 30
