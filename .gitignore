@@ -8,7 +8,6 @@ server
 agent
 
 # Build artifacts
-/internal/web/dist/
 /dist/
 
 # Data & certs

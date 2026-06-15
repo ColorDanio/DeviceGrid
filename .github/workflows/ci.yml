@@ -23,6 +23,23 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend deps
+        run: cd web && npm ci || npm install
+
+      - name: Build frontend (for go:embed)
+        run: cd web && npm run build
+
+      - name: Sync dist for embed
+        run: |
+          rm -rf internal/web/dist
+          cp -r web/dist internal/web/dist
+
       - name: Download dependencies
         run: go mod download
 

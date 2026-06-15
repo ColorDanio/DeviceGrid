@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -13,9 +14,23 @@ import (
 var distFS embed.FS
 
 func RegisterStaticFiles(engine *gin.Engine, debug bool) {
-	subFS, err := fs.Sub(distFS, "dist")
-	if err != nil {
-		panic("embed dist: " + err.Error())
+	var subFS fs.FS
+
+	if debug {
+		if _, err := os.Stat("web/dist/index.html"); err == nil {
+			subFS = os.DirFS("web/dist")
+		}
+	}
+
+	if subFS == nil {
+		s, err := fs.Sub(distFS, "dist")
+		if err == nil {
+			subFS = s
+		}
+	}
+
+	if subFS == nil {
+		return
 	}
 
 	fileServer := http.FileServer(http.FS(subFS))
@@ -32,6 +47,7 @@ func RegisterStaticFiles(engine *gin.Engine, debug bool) {
 			return
 		}
 
+		// SPA fallback
 		indexData, err := fs.ReadFile(subFS, "index.html")
 		if err == nil {
 			c.Data(http.StatusOK, "text/html; charset=utf-8", indexData)
