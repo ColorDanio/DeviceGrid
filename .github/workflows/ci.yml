@@ -1,10 +1,16 @@
-name: Build and Test
+name: Build and Release
 
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 2026.6.15)'
+        required: false
+        default: ''
 
 env:
   GO_VERSION: '1.22'
@@ -91,12 +97,14 @@ jobs:
           path: web/dist/
           retention-days: 7
 
-  # ===== Release: single binary + deb =====
+  # ===== Release: single binary + deb + GitHub Release =====
   release:
     name: Release Package
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -122,27 +130,43 @@ jobs:
           rm -rf internal/web/dist
           cp -r web/dist internal/web/dist
 
-      - name: Build server binary
-        run: go build -trimpath -ldflags "-s -w" -o bin/devicegrid-server ./cmd/server
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(date +'%Y.%-m.%-d')" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Build agent binary
-        run: go build -trimpath -ldflags "-s -w" -o bin/devicegrid-agent ./cmd/agent
+      - name: Build server binary (amd64)
+        run: GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/devicegrid-server-amd64 ./cmd/server
+
+      - name: Build agent binary (amd64)
+        run: GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/devicegrid-agent-amd64 ./cmd/agent
+
+      - name: Build agent binary (arm64)
+        run: GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o dist/devicegrid-agent-arm64 ./cmd/agent
 
       - name: Create deb package
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
           mkdir -p dist/deb/DEBIAN dist/deb/usr/local/bin dist/deb/usr/local/lib/devicegrid/configs dist/deb/etc/systemd/system
-          cp bin/devicegrid-server dist/deb/usr/local/bin/
-          cp bin/devicegrid-agent dist/deb/usr/local/bin/
+          cp dist/devicegrid-server-amd64 dist/deb/usr/local/bin/devicegrid-server
+          cp dist/devicegrid-agent-amd64 dist/deb/usr/local/bin/devicegrid-agent
           cp configs/config.yaml dist/deb/usr/local/lib/devicegrid/configs/
-          cat > dist/deb/DEBIAN/control << 'EOF'
+          cat > dist/deb/DEBIAN/control << EOF
           Package: devicegrid
-          Version: 1.0.0
+          Version: ${VERSION}
           Architecture: amd64
           Maintainer: DeviceGrid <noreply@devicegrid.dev>
           Depends: libc6
           Description: DeviceGrid - Server Fleet Management Platform
+           SSH + Agent dual-mode, real-time monitoring, Docker lifecycle,
+           batch deployment, and RKE2 orchestration.
           Section: admin
           Priority: optional
+          Homepage: https://github.com/ColorDanio/DeviceGrid
           EOF
           cat > dist/deb/DEBIAN/postinst << 'EOF2'
           #!/bin/bash
@@ -150,7 +174,13 @@ jobs:
           mkdir -p /var/lib/devicegrid/data /etc/devicegrid
           [ ! -f /etc/devicegrid/config.yaml ] && cp /usr/local/lib/devicegrid/configs/config.yaml /etc/devicegrid/config.yaml
           systemctl daemon-reload 2>/dev/null || true
-          echo "DeviceGrid installed. Config: /etc/devicegrid/config.yaml"
+          echo ""
+          echo "DeviceGrid installed successfully!"
+          echo "  Config: /etc/devicegrid/config.yaml"
+          echo "  Data:   /var/lib/devicegrid/data/"
+          echo ""
+          echo "  sudo systemctl enable --now devicegrid"
+          echo "  Default login: admin / admin123 (change immediately!)"
           EOF2
           chmod 755 dist/deb/DEBIAN/postinst
           cat > dist/deb/etc/systemd/system/devicegrid.service << 'EOF3'
@@ -164,40 +194,63 @@ jobs:
           WorkingDirectory=/var/lib/devicegrid
           Restart=always
           RestartSec=5
+          LimitNOFILE=65536
           [Install]
           WantedBy=multi-user.target
           EOF3
-          dpkg-deb --build --root-owner-group dist/deb dist/devicegrid-1.0.0-amd64.deb
+          dpkg-deb --build --root-owner-group dist/deb dist/devicegrid-${VERSION}-amd64.deb
 
-      - name: Upload release artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ github.sha }}
           path: |
-            bin/devicegrid-server
-            bin/devicegrid-agent
+            dist/devicegrid-server-amd64
+            dist/devicegrid-agent-amd64
+            dist/devicegrid-agent-arm64
             dist/*.deb
           retention-days: 30
 
-  # ===== Cross-compile agent for arm64 =====
-  agent-arm64:
-    name: Agent (ARM64)
-    runs-on: ubuntu-latest
-    needs: [backend]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
+          tag_name: v${{ steps.version.outputs.version }}
+          name: DeviceGrid v${{ steps.version.outputs.version }}
+          body: |
+            ## DeviceGrid v${{ steps.version.outputs.version }}
 
-      - name: Build agent for linux/arm64
-        run: GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w" -o bin/devicegrid-agent-linux-arm64 ./cmd/agent
+            ### Downloads
+            | File | Architecture | Description |
+            |---|---|---|
+            | `devicegrid-server-amd64` | x86_64 | Server binary (with embedded frontend) |
+            | `devicegrid-agent-amd64` | x86_64 | Agent for x86_64 nodes |
+            | `devicegrid-agent-arm64` | arm64 | Agent for ARM64 nodes |
+            | `devicegrid-*-amd64.deb` | x86_64 | Ubuntu/Debian package with systemd service |
 
-      - name: Upload arm64 agent
-        uses: actions/upload-artifact@v4
-        with:
-          name: agent-arm64-${{ github.sha }}
-          path: bin/devicegrid-agent-linux-arm64
-          retention-days: 30
+            ### Quick Start (deb)
+            ```bash
+            sudo dpkg -i devicegrid-*.deb
+            sudo systemctl enable --now devicegrid
+            ```
+            Then open `http://<server-ip>:8080` — Login: `admin` / `admin123`
+
+            ### Quick Start (binary)
+            ```bash
+            chmod +x devicegrid-server-amd64
+            ./devicegrid-server-amd64
+            ```
+
+            ### Deploy Agent on a Node
+            ```bash
+            # x86_64
+            ./devicegrid-agent-amd64 -server <server-ip>:9090 -node-id <id> -node-name <name>
+            # ARM64
+            ./devicegrid-agent-arm64 -server <server-ip>:9090 -node-id <id> -node-name <name>
+            ```
+          files: |
+            dist/devicegrid-server-amd64
+            dist/devicegrid-agent-amd64
+            dist/devicegrid-agent-arm64
+            dist/*.deb
+          draft: false
+          prerelease: false
