@@ -27,7 +27,6 @@ agent
 /web/dist/
 /web/node_modules/
 /web/.vite/
-web/package-lock.json
 
 # Electron
 /electron/node_modules/
@@ -36,7 +35,6 @@ web/package-lock.json
 
 # Root-level node_modules (if any)
 /node_modules/
-package-lock.json
 
 # IDE
 .idea/
