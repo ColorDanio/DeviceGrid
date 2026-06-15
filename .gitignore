@@ -1,0 +1,56 @@
+# Binaries
+/bin/
+/dist/
+/devicegrid-server
+/devicegrid-agent
+devicegrid
+server
+agent
+
+# Build artifacts
+/internal/web/dist/
+/dist/
+
+# Data & certs
+/data/
+/configs/certs/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+.env.*
+
+# Frontend
+/web/dist/
+/web/node_modules/
+/web/.vite/
+web/package-lock.json
+
+# Electron
+/electron/node_modules/
+/electron/release/
+/electron/bin/
+
+# Root-level node_modules (if any)
+/node_modules/
+package-lock.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Air temporary
+/tmp/
+
+# Coverage
+coverage.out
