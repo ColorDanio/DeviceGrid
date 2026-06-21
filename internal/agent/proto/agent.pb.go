@@ -931,6 +931,7 @@ type ServerMessage struct {
 	//	*ServerMessage_FileUploadRequest
 	//	*ServerMessage_FileDownloadRequest
 	//	*ServerMessage_FileInfoRequest
+	//	*ServerMessage_PtyStart
 	Payload       isServerMessage_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1045,6 +1046,15 @@ func (x *ServerMessage) GetFileInfoRequest() *FileInfoRequest {
 	return nil
 }
 
+func (x *ServerMessage) GetPtyStart() *PtyStart {
+	if x != nil {
+		if x, ok := x.Payload.(*ServerMessage_PtyStart); ok {
+			return x.PtyStart
+		}
+	}
+	return nil
+}
+
 type isServerMessage_Payload interface {
 	isServerMessage_Payload()
 }
@@ -1081,6 +1091,10 @@ type ServerMessage_FileInfoRequest struct {
 	FileInfoRequest *FileInfoRequest `protobuf:"bytes,8,opt,name=file_info_request,json=fileInfoRequest,proto3,oneof"`
 }
 
+type ServerMessage_PtyStart struct {
+	PtyStart *PtyStart `protobuf:"bytes,9,opt,name=pty_start,json=ptyStart,proto3,oneof"`
+}
+
 func (*ServerMessage_CommandRequest) isServerMessage_Payload() {}
 
 func (*ServerMessage_PtyInput) isServerMessage_Payload() {}
@@ -1096,6 +1110,76 @@ func (*ServerMessage_FileUploadRequest) isServerMessage_Payload() {}
 func (*ServerMessage_FileDownloadRequest) isServerMessage_Payload() {}
 
 func (*ServerMessage_FileInfoRequest) isServerMessage_Payload() {}
+
+func (*ServerMessage_PtyStart) isServerMessage_Payload() {}
+
+type PtyStart struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Cols          uint32                 `protobuf:"varint,2,opt,name=cols,proto3" json:"cols,omitempty"`
+	Rows          uint32                 `protobuf:"varint,3,opt,name=rows,proto3" json:"rows,omitempty"`
+	Term          string                 `protobuf:"bytes,4,opt,name=term,proto3" json:"term,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PtyStart) Reset() {
+	*x = PtyStart{}
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PtyStart) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PtyStart) ProtoMessage() {}
+
+func (x *PtyStart) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PtyStart.ProtoReflect.Descriptor instead.
+func (*PtyStart) Descriptor() ([]byte, []int) {
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *PtyStart) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *PtyStart) GetCols() uint32 {
+	if x != nil {
+		return x.Cols
+	}
+	return 0
+}
+
+func (x *PtyStart) GetRows() uint32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+func (x *PtyStart) GetTerm() string {
+	if x != nil {
+		return x.Term
+	}
+	return ""
+}
 
 type MetricsReport struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1120,7 +1204,7 @@ type MetricsReport struct {
 
 func (x *MetricsReport) Reset() {
 	*x = MetricsReport{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[14]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1132,7 +1216,7 @@ func (x *MetricsReport) String() string {
 func (*MetricsReport) ProtoMessage() {}
 
 func (x *MetricsReport) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[14]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1145,7 +1229,7 @@ func (x *MetricsReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricsReport.ProtoReflect.Descriptor instead.
 func (*MetricsReport) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{14}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *MetricsReport) GetCpuUsage() float64 {
@@ -1262,7 +1346,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[15]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1274,7 +1358,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[15]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1287,7 +1371,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{15}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Heartbeat) GetTimestamp() int64 {
@@ -1308,7 +1392,7 @@ type CommandRequest struct {
 
 func (x *CommandRequest) Reset() {
 	*x = CommandRequest{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[16]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1320,7 +1404,7 @@ func (x *CommandRequest) String() string {
 func (*CommandRequest) ProtoMessage() {}
 
 func (x *CommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[16]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1333,7 +1417,7 @@ func (x *CommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandRequest.ProtoReflect.Descriptor instead.
 func (*CommandRequest) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{16}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CommandRequest) GetRequestId() string {
@@ -1370,7 +1454,7 @@ type CommandResponse struct {
 
 func (x *CommandResponse) Reset() {
 	*x = CommandResponse{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[17]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1382,7 +1466,7 @@ func (x *CommandResponse) String() string {
 func (*CommandResponse) ProtoMessage() {}
 
 func (x *CommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[17]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1395,7 +1479,7 @@ func (x *CommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResponse.ProtoReflect.Descriptor instead.
 func (*CommandResponse) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{17}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CommandResponse) GetRequestId() string {
@@ -1444,7 +1528,7 @@ type PtyOutput struct {
 
 func (x *PtyOutput) Reset() {
 	*x = PtyOutput{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[18]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1456,7 +1540,7 @@ func (x *PtyOutput) String() string {
 func (*PtyOutput) ProtoMessage() {}
 
 func (x *PtyOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[18]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1469,7 +1553,7 @@ func (x *PtyOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PtyOutput.ProtoReflect.Descriptor instead.
 func (*PtyOutput) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{18}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PtyOutput) GetSessionId() string {
@@ -1503,7 +1587,7 @@ type PtyInput struct {
 
 func (x *PtyInput) Reset() {
 	*x = PtyInput{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[19]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1515,7 +1599,7 @@ func (x *PtyInput) String() string {
 func (*PtyInput) ProtoMessage() {}
 
 func (x *PtyInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[19]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1528,7 +1612,7 @@ func (x *PtyInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PtyInput.ProtoReflect.Descriptor instead.
 func (*PtyInput) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{19}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *PtyInput) GetSessionId() string {
@@ -1556,7 +1640,7 @@ type PtyResize struct {
 
 func (x *PtyResize) Reset() {
 	*x = PtyResize{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[20]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1568,7 +1652,7 @@ func (x *PtyResize) String() string {
 func (*PtyResize) ProtoMessage() {}
 
 func (x *PtyResize) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[20]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1581,7 +1665,7 @@ func (x *PtyResize) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PtyResize.ProtoReflect.Descriptor instead.
 func (*PtyResize) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{20}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PtyResize) GetSessionId() string {
@@ -1614,7 +1698,7 @@ type PtyClose struct {
 
 func (x *PtyClose) Reset() {
 	*x = PtyClose{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[21]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1626,7 +1710,7 @@ func (x *PtyClose) String() string {
 func (*PtyClose) ProtoMessage() {}
 
 func (x *PtyClose) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[21]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1639,7 +1723,7 @@ func (x *PtyClose) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PtyClose.ProtoReflect.Descriptor instead.
 func (*PtyClose) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{21}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PtyClose) GetSessionId() string {
@@ -1659,7 +1743,7 @@ type FileListRequest struct {
 
 func (x *FileListRequest) Reset() {
 	*x = FileListRequest{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[22]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1671,7 +1755,7 @@ func (x *FileListRequest) String() string {
 func (*FileListRequest) ProtoMessage() {}
 
 func (x *FileListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[22]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1684,7 +1768,7 @@ func (x *FileListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileListRequest.ProtoReflect.Descriptor instead.
 func (*FileListRequest) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{22}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *FileListRequest) GetRequestId() string {
@@ -1712,7 +1796,7 @@ type FileListResponse struct {
 
 func (x *FileListResponse) Reset() {
 	*x = FileListResponse{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[23]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1724,7 +1808,7 @@ func (x *FileListResponse) String() string {
 func (*FileListResponse) ProtoMessage() {}
 
 func (x *FileListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[23]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1737,7 +1821,7 @@ func (x *FileListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileListResponse.ProtoReflect.Descriptor instead.
 func (*FileListResponse) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{23}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *FileListResponse) GetRequestId() string {
@@ -1775,7 +1859,7 @@ type FileEntry struct {
 
 func (x *FileEntry) Reset() {
 	*x = FileEntry{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[24]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1787,7 +1871,7 @@ func (x *FileEntry) String() string {
 func (*FileEntry) ProtoMessage() {}
 
 func (x *FileEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[24]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1800,7 +1884,7 @@ func (x *FileEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileEntry.ProtoReflect.Descriptor instead.
 func (*FileEntry) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{24}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *FileEntry) GetName() string {
@@ -1857,7 +1941,7 @@ type FileUploadRequest struct {
 
 func (x *FileUploadRequest) Reset() {
 	*x = FileUploadRequest{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[25]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1869,7 +1953,7 @@ func (x *FileUploadRequest) String() string {
 func (*FileUploadRequest) ProtoMessage() {}
 
 func (x *FileUploadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[25]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1882,7 +1966,7 @@ func (x *FileUploadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileUploadRequest.ProtoReflect.Descriptor instead.
 func (*FileUploadRequest) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{25}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *FileUploadRequest) GetRequestId() string {
@@ -1923,7 +2007,7 @@ type FileDownloadRequest struct {
 
 func (x *FileDownloadRequest) Reset() {
 	*x = FileDownloadRequest{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[26]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1935,7 +2019,7 @@ func (x *FileDownloadRequest) String() string {
 func (*FileDownloadRequest) ProtoMessage() {}
 
 func (x *FileDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[26]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1948,7 +2032,7 @@ func (x *FileDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDownloadRequest.ProtoReflect.Descriptor instead.
 func (*FileDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{26}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *FileDownloadRequest) GetRequestId() string {
@@ -1977,7 +2061,7 @@ type FileData struct {
 
 func (x *FileData) Reset() {
 	*x = FileData{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[27]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1989,7 +2073,7 @@ func (x *FileData) String() string {
 func (*FileData) ProtoMessage() {}
 
 func (x *FileData) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[27]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2002,7 +2086,7 @@ func (x *FileData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileData.ProtoReflect.Descriptor instead.
 func (*FileData) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{27}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *FileData) GetRequestId() string {
@@ -2043,7 +2127,7 @@ type FileInfoRequest struct {
 
 func (x *FileInfoRequest) Reset() {
 	*x = FileInfoRequest{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[28]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2139,7 @@ func (x *FileInfoRequest) String() string {
 func (*FileInfoRequest) ProtoMessage() {}
 
 func (x *FileInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[28]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2152,7 @@ func (x *FileInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileInfoRequest.ProtoReflect.Descriptor instead.
 func (*FileInfoRequest) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{28}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *FileInfoRequest) GetRequestId() string {
@@ -2098,7 +2182,7 @@ type FileInfoResponse struct {
 
 func (x *FileInfoResponse) Reset() {
 	*x = FileInfoResponse{}
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[29]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2110,7 +2194,7 @@ func (x *FileInfoResponse) String() string {
 func (*FileInfoResponse) ProtoMessage() {}
 
 func (x *FileInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_agent_proto_agent_proto_msgTypes[29]
+	mi := &file_internal_agent_proto_agent_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2123,7 +2207,7 @@ func (x *FileInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileInfoResponse.ProtoReflect.Descriptor instead.
 func (*FileInfoResponse) Descriptor() ([]byte, []int) {
-	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{29}
+	return file_internal_agent_proto_agent_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *FileInfoResponse) GetRequestId() string {
@@ -2232,7 +2316,7 @@ const file_internal_agent_proto_agent_proto_rawDesc = "" +
 	"\tfile_list\x18\a \x01(\v2\x17.agent.FileListResponseH\x00R\bfileList\x12.\n" +
 	"\tfile_data\x18\b \x01(\v2\x0f.agent.FileDataH\x00R\bfileData\x126\n" +
 	"\tfile_info\x18\t \x01(\v2\x17.agent.FileInfoResponseH\x00R\bfileInfoB\t\n" +
-	"\apayload\"\x99\x04\n" +
+	"\apayload\"\xc9\x04\n" +
 	"\rServerMessage\x12@\n" +
 	"\x0fcommand_request\x18\x01 \x01(\v2\x15.agent.CommandRequestH\x00R\x0ecommandRequest\x12.\n" +
 	"\tpty_input\x18\x02 \x01(\v2\x0f.agent.PtyInputH\x00R\bptyInput\x121\n" +
@@ -2242,8 +2326,15 @@ const file_internal_agent_proto_agent_proto_rawDesc = "" +
 	"\x11file_list_request\x18\x05 \x01(\v2\x16.agent.FileListRequestH\x00R\x0ffileListRequest\x12J\n" +
 	"\x13file_upload_request\x18\x06 \x01(\v2\x18.agent.FileUploadRequestH\x00R\x11fileUploadRequest\x12P\n" +
 	"\x15file_download_request\x18\a \x01(\v2\x1a.agent.FileDownloadRequestH\x00R\x13fileDownloadRequest\x12D\n" +
-	"\x11file_info_request\x18\b \x01(\v2\x16.agent.FileInfoRequestH\x00R\x0ffileInfoRequestB\t\n" +
-	"\apayload\"\xb8\x03\n" +
+	"\x11file_info_request\x18\b \x01(\v2\x16.agent.FileInfoRequestH\x00R\x0ffileInfoRequest\x12.\n" +
+	"\tpty_start\x18\t \x01(\v2\x0f.agent.PtyStartH\x00R\bptyStartB\t\n" +
+	"\apayload\"e\n" +
+	"\bPtyStart\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x12\n" +
+	"\x04cols\x18\x02 \x01(\rR\x04cols\x12\x12\n" +
+	"\x04rows\x18\x03 \x01(\rR\x04rows\x12\x12\n" +
+	"\x04term\x18\x04 \x01(\tR\x04term\"\xb8\x03\n" +
 	"\rMetricsReport\x12\x1b\n" +
 	"\tcpu_usage\x18\x01 \x01(\x01R\bcpuUsage\x12\x1b\n" +
 	"\tcpu_cores\x18\x02 \x01(\x04R\bcpuCores\x12\x1c\n" +
@@ -2364,7 +2455,7 @@ func file_internal_agent_proto_agent_proto_rawDescGZIP() []byte {
 	return file_internal_agent_proto_agent_proto_rawDescData
 }
 
-var file_internal_agent_proto_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_internal_agent_proto_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_internal_agent_proto_agent_proto_goTypes = []any{
 	(*Empty)(nil),               // 0: agent.Empty
 	(*PingRequest)(nil),         // 1: agent.PingRequest
@@ -2380,59 +2471,61 @@ var file_internal_agent_proto_agent_proto_goTypes = []any{
 	(*PTYChunk)(nil),            // 11: agent.PTYChunk
 	(*ClientMessage)(nil),       // 12: agent.ClientMessage
 	(*ServerMessage)(nil),       // 13: agent.ServerMessage
-	(*MetricsReport)(nil),       // 14: agent.MetricsReport
-	(*Heartbeat)(nil),           // 15: agent.Heartbeat
-	(*CommandRequest)(nil),      // 16: agent.CommandRequest
-	(*CommandResponse)(nil),     // 17: agent.CommandResponse
-	(*PtyOutput)(nil),           // 18: agent.PtyOutput
-	(*PtyInput)(nil),            // 19: agent.PtyInput
-	(*PtyResize)(nil),           // 20: agent.PtyResize
-	(*PtyClose)(nil),            // 21: agent.PtyClose
-	(*FileListRequest)(nil),     // 22: agent.FileListRequest
-	(*FileListResponse)(nil),    // 23: agent.FileListResponse
-	(*FileEntry)(nil),           // 24: agent.FileEntry
-	(*FileUploadRequest)(nil),   // 25: agent.FileUploadRequest
-	(*FileDownloadRequest)(nil), // 26: agent.FileDownloadRequest
-	(*FileData)(nil),            // 27: agent.FileData
-	(*FileInfoRequest)(nil),     // 28: agent.FileInfoRequest
-	(*FileInfoResponse)(nil),    // 29: agent.FileInfoResponse
+	(*PtyStart)(nil),            // 14: agent.PtyStart
+	(*MetricsReport)(nil),       // 15: agent.MetricsReport
+	(*Heartbeat)(nil),           // 16: agent.Heartbeat
+	(*CommandRequest)(nil),      // 17: agent.CommandRequest
+	(*CommandResponse)(nil),     // 18: agent.CommandResponse
+	(*PtyOutput)(nil),           // 19: agent.PtyOutput
+	(*PtyInput)(nil),            // 20: agent.PtyInput
+	(*PtyResize)(nil),           // 21: agent.PtyResize
+	(*PtyClose)(nil),            // 22: agent.PtyClose
+	(*FileListRequest)(nil),     // 23: agent.FileListRequest
+	(*FileListResponse)(nil),    // 24: agent.FileListResponse
+	(*FileEntry)(nil),           // 25: agent.FileEntry
+	(*FileUploadRequest)(nil),   // 26: agent.FileUploadRequest
+	(*FileDownloadRequest)(nil), // 27: agent.FileDownloadRequest
+	(*FileData)(nil),            // 28: agent.FileData
+	(*FileInfoRequest)(nil),     // 29: agent.FileInfoRequest
+	(*FileInfoResponse)(nil),    // 30: agent.FileInfoResponse
 }
 var file_internal_agent_proto_agent_proto_depIdxs = []int32{
-	14, // 0: agent.ClientMessage.metrics:type_name -> agent.MetricsReport
-	17, // 1: agent.ClientMessage.command_response:type_name -> agent.CommandResponse
-	18, // 2: agent.ClientMessage.pty_output:type_name -> agent.PtyOutput
-	15, // 3: agent.ClientMessage.heartbeat:type_name -> agent.Heartbeat
-	23, // 4: agent.ClientMessage.file_list:type_name -> agent.FileListResponse
-	27, // 5: agent.ClientMessage.file_data:type_name -> agent.FileData
-	29, // 6: agent.ClientMessage.file_info:type_name -> agent.FileInfoResponse
-	16, // 7: agent.ServerMessage.command_request:type_name -> agent.CommandRequest
-	19, // 8: agent.ServerMessage.pty_input:type_name -> agent.PtyInput
-	20, // 9: agent.ServerMessage.pty_resize:type_name -> agent.PtyResize
-	21, // 10: agent.ServerMessage.pty_close:type_name -> agent.PtyClose
-	22, // 11: agent.ServerMessage.file_list_request:type_name -> agent.FileListRequest
-	25, // 12: agent.ServerMessage.file_upload_request:type_name -> agent.FileUploadRequest
-	26, // 13: agent.ServerMessage.file_download_request:type_name -> agent.FileDownloadRequest
-	28, // 14: agent.ServerMessage.file_info_request:type_name -> agent.FileInfoRequest
-	24, // 15: agent.FileListResponse.entries:type_name -> agent.FileEntry
-	1,  // 16: agent.AgentService.Ping:input_type -> agent.PingRequest
-	3,  // 17: agent.AgentService.Exec:input_type -> agent.ExecRequest
-	5,  // 18: agent.AgentService.Upload:input_type -> agent.UploadRequest
-	7,  // 19: agent.AgentService.Download:input_type -> agent.DownloadRequest
-	0,  // 20: agent.AgentService.SystemInfo:input_type -> agent.Empty
-	10, // 21: agent.AgentService.PTY:input_type -> agent.PTYRequest
-	12, // 22: agent.TunnelService.Connect:input_type -> agent.ClientMessage
-	2,  // 23: agent.AgentService.Ping:output_type -> agent.PingResponse
-	4,  // 24: agent.AgentService.Exec:output_type -> agent.ExecChunk
-	6,  // 25: agent.AgentService.Upload:output_type -> agent.UploadResponse
-	8,  // 26: agent.AgentService.Download:output_type -> agent.Chunk
-	9,  // 27: agent.AgentService.SystemInfo:output_type -> agent.SystemInfoResponse
-	11, // 28: agent.AgentService.PTY:output_type -> agent.PTYChunk
-	13, // 29: agent.TunnelService.Connect:output_type -> agent.ServerMessage
-	23, // [23:30] is the sub-list for method output_type
-	16, // [16:23] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	15, // 0: agent.ClientMessage.metrics:type_name -> agent.MetricsReport
+	18, // 1: agent.ClientMessage.command_response:type_name -> agent.CommandResponse
+	19, // 2: agent.ClientMessage.pty_output:type_name -> agent.PtyOutput
+	16, // 3: agent.ClientMessage.heartbeat:type_name -> agent.Heartbeat
+	24, // 4: agent.ClientMessage.file_list:type_name -> agent.FileListResponse
+	28, // 5: agent.ClientMessage.file_data:type_name -> agent.FileData
+	30, // 6: agent.ClientMessage.file_info:type_name -> agent.FileInfoResponse
+	17, // 7: agent.ServerMessage.command_request:type_name -> agent.CommandRequest
+	20, // 8: agent.ServerMessage.pty_input:type_name -> agent.PtyInput
+	21, // 9: agent.ServerMessage.pty_resize:type_name -> agent.PtyResize
+	22, // 10: agent.ServerMessage.pty_close:type_name -> agent.PtyClose
+	23, // 11: agent.ServerMessage.file_list_request:type_name -> agent.FileListRequest
+	26, // 12: agent.ServerMessage.file_upload_request:type_name -> agent.FileUploadRequest
+	27, // 13: agent.ServerMessage.file_download_request:type_name -> agent.FileDownloadRequest
+	29, // 14: agent.ServerMessage.file_info_request:type_name -> agent.FileInfoRequest
+	14, // 15: agent.ServerMessage.pty_start:type_name -> agent.PtyStart
+	25, // 16: agent.FileListResponse.entries:type_name -> agent.FileEntry
+	1,  // 17: agent.AgentService.Ping:input_type -> agent.PingRequest
+	3,  // 18: agent.AgentService.Exec:input_type -> agent.ExecRequest
+	5,  // 19: agent.AgentService.Upload:input_type -> agent.UploadRequest
+	7,  // 20: agent.AgentService.Download:input_type -> agent.DownloadRequest
+	0,  // 21: agent.AgentService.SystemInfo:input_type -> agent.Empty
+	10, // 22: agent.AgentService.PTY:input_type -> agent.PTYRequest
+	12, // 23: agent.TunnelService.Connect:input_type -> agent.ClientMessage
+	2,  // 24: agent.AgentService.Ping:output_type -> agent.PingResponse
+	4,  // 25: agent.AgentService.Exec:output_type -> agent.ExecChunk
+	6,  // 26: agent.AgentService.Upload:output_type -> agent.UploadResponse
+	8,  // 27: agent.AgentService.Download:output_type -> agent.Chunk
+	9,  // 28: agent.AgentService.SystemInfo:output_type -> agent.SystemInfoResponse
+	11, // 29: agent.AgentService.PTY:output_type -> agent.PTYChunk
+	13, // 30: agent.TunnelService.Connect:output_type -> agent.ServerMessage
+	24, // [24:31] is the sub-list for method output_type
+	17, // [17:24] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_internal_agent_proto_agent_proto_init() }
@@ -2458,6 +2551,7 @@ func file_internal_agent_proto_agent_proto_init() {
 		(*ServerMessage_FileUploadRequest)(nil),
 		(*ServerMessage_FileDownloadRequest)(nil),
 		(*ServerMessage_FileInfoRequest)(nil),
+		(*ServerMessage_PtyStart)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2465,7 +2559,7 @@ func file_internal_agent_proto_agent_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_agent_proto_agent_proto_rawDesc), len(file_internal_agent_proto_agent_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   31,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

@@ -114,7 +114,15 @@ message ServerMessage {
     FileUploadRequest file_upload_request = 6;
     FileDownloadRequest file_download_request = 7;
     FileInfoRequest file_info_request = 8;
+    PtyStart pty_start = 9;
   }
+}
+
+message PtyStart {
+  string session_id = 1;
+  uint32 cols = 2;
+  uint32 rows = 3;
+  string term = 4;
 }
 
 message MetricsReport {

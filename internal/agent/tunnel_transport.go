@@ -206,11 +206,144 @@ func (t *TunnelTransport) Download(ctx context.Context, nodeID string, remotePat
 }
 
 func (t *TunnelTransport) PTY(ctx context.Context, nodeID string, cols, rows uint16) (transport.PTYSession, error) {
-	return nil, fmt.Errorf("use SSH PTY for interactive terminal")
+	if !t.isAgentOnline(nodeID) {
+		return nil, ErrNotConnected
+	}
+
+	sessionID := NewRequestID()
+
+	// Send PtyStart to agent
+	if err := t.sendToAgent(nodeID, &agentpb.ServerMessage{
+		Payload: &agentpb.ServerMessage_PtyStart{
+			PtyStart: &agentpb.PtyStart{
+				SessionId: sessionID,
+				Cols:      uint32(cols),
+				Rows:      uint32(rows),
+				Term:      "xterm-256color",
+			},
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("send pty start: %w", err)
+	}
+
+	// Register output channel
+	outputCh := RegisterPtyOutput(sessionID)
+
+	return &tunnelPTYSession{
+		nodeID:    nodeID,
+		sessionID: sessionID,
+		transport: t,
+		outputCh:  outputCh,
+		done:      make(chan struct{}),
+	}, nil
 }
 
 func (t *TunnelTransport) ContainerPTY(ctx context.Context, nodeID, containerID string, cols, rows uint16) (transport.PTYSession, error) {
-	return nil, fmt.Errorf("use SSH container PTY")
+	// For containers, exec into container via the agent's shell
+	if !t.isAgentOnline(nodeID) {
+		return nil, ErrNotConnected
+	}
+
+	sessionID := NewRequestID()
+	if err := t.sendToAgent(nodeID, &agentpb.ServerMessage{
+		Payload: &agentpb.ServerMessage_PtyStart{
+			PtyStart: &agentpb.PtyStart{
+				SessionId: sessionID,
+				Cols:      uint32(cols),
+				Rows:      uint32(rows),
+				Term:      "xterm-256color",
+			},
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("send container pty start: %w", err)
+	}
+
+	// After PTY starts, send the docker exec command
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		t.sendToAgent(nodeID, &agentpb.ServerMessage{
+			Payload: &agentpb.ServerMessage_PtyInput{
+				PtyInput: &agentpb.PtyInput{
+					SessionId: sessionID,
+					Data:      []byte(fmt.Sprintf("docker exec -it %s bash || docker exec -it %s sh\n", containerID, containerID)),
+				},
+			},
+		})
+	}()
+
+	outputCh := RegisterPtyOutput(sessionID)
+
+	return &tunnelPTYSession{
+		nodeID:    nodeID,
+		sessionID: sessionID,
+		transport: t,
+		outputCh:  outputCh,
+		done:      make(chan struct{}),
+	}, nil
+}
+
+type tunnelPTYSession struct {
+	nodeID    string
+	sessionID string
+	transport *TunnelTransport
+	outputCh  chan *agentpb.PtyOutput
+	done      chan struct{}
+	closed    bool
+}
+
+func (s *tunnelPTYSession) Write(data []byte) error {
+	return s.transport.sendToAgent(s.nodeID, &agentpb.ServerMessage{
+		Payload: &agentpb.ServerMessage_PtyInput{
+			PtyInput: &agentpb.PtyInput{
+				SessionId: s.sessionID,
+				Data:      data,
+			},
+		},
+	})
+}
+
+func (s *tunnelPTYSession) Read() ([]byte, error) {
+	select {
+	case out := <-s.outputCh:
+		if out.Closed {
+			close(s.done)
+			return nil, fmt.Errorf("session closed")
+		}
+		return out.Data, nil
+	case <-s.done:
+		return nil, fmt.Errorf("session closed")
+	}
+}
+
+func (s *tunnelPTYSession) Resize(cols, rows uint16) error {
+	return s.transport.sendToAgent(s.nodeID, &agentpb.ServerMessage{
+		Payload: &agentpb.ServerMessage_PtyResize{
+			PtyResize: &agentpb.PtyResize{
+				SessionId: s.sessionID,
+				Cols:      uint32(cols),
+				Rows:      uint32(rows),
+			},
+		},
+	})
+}
+
+func (s *tunnelPTYSession) Close() error {
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	close(s.done)
+	return s.transport.sendToAgent(s.nodeID, &agentpb.ServerMessage{
+		Payload: &agentpb.ServerMessage_PtyClose{
+			PtyClose: &agentpb.PtyClose{
+				SessionId: s.sessionID,
+			},
+		},
+	})
+}
+
+func (s *tunnelPTYSession) Done() <-chan struct{} {
+	return s.done
 }
 
 func (t *TunnelTransport) Ping(ctx context.Context, nodeID string) error {

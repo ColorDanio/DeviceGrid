@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,6 +27,8 @@ func main() {
 	nodeID := flag.String("node-id", "", "This node's unique ID")
 	nodeName := flag.String("node-name", "", "This node's display name")
 	interval := flag.Int("interval", 5, "Metrics report interval in seconds")
+	caCertPath := flag.String("ca-cert", "", "CA certificate path for mTLS (leave empty for development)")
+	insecure := flag.Bool("insecure", false, "Skip TLS verification (development only)")
 	flag.Parse()
 
 	if *nodeID == "" {
@@ -38,7 +42,7 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
 	for {
-		err := connectAndRun(*serverAddr, *nodeID, *nodeName, *interval)
+		err := connectAndRun(*serverAddr, *nodeID, *nodeName, *interval, *caCertPath, *insecure)
 		if err != nil {
 			slog.Warn("tunnel disconnected, retrying", "error", err)
 		}
@@ -46,8 +50,33 @@ func main() {
 	}
 }
 
-func connectAndRun(serverAddr, nodeID, nodeName string, interval int) error {
-	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+func connectAndRun(serverAddr, nodeID, nodeName string, interval int, caCertPath string, insecure bool) error {
+	var tlsConfig *tls.Config
+
+	if insecure || caCertPath == "" {
+		// Development mode: skip verification
+		tlsConfig = &tls.Config{InsecureSkipVerify: true}
+		if insecure {
+			slog.Warn("running in insecure mode (TLS verification disabled)")
+		}
+	} else {
+		// Production: load CA cert for mTLS
+		caCert, err := os.ReadFile(caCertPath)
+		if err != nil {
+			return fmt.Errorf("read CA cert: %w", err)
+		}
+		caPool := x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM(caCert) {
+			return fmt.Errorf("failed to parse CA certificate")
+		}
+		tlsConfig = &tls.Config{
+			RootCAs:            caPool,
+			ServerName:         extractHost(serverAddr),
+			MinVersion:         tls.VersionTLS13,
+		}
+		slog.Info("mTLS enabled", "ca_cert", caCertPath)
+	}
+
 	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	if err != nil {
 		return fmt.Errorf("dial server: %w", err)
@@ -129,6 +158,14 @@ func connectAndRun(serverAddr, nodeID, nodeName string, interval int) error {
 			go handleFileDownload(stream, nodeID, nodeName, p.FileDownloadRequest)
 		case *agentpb.ServerMessage_FileListRequest:
 			go handleFileList(stream, nodeID, nodeName, p.FileListRequest)
+		case *agentpb.ServerMessage_PtyStart:
+			go handlePtyStart(stream, nodeID, nodeName, p.PtyStart)
+		case *agentpb.ServerMessage_PtyInput:
+			go handlePtyInput(p.PtyInput)
+		case *agentpb.ServerMessage_PtyResize:
+			handlePtyResize(p.PtyResize)
+		case *agentpb.ServerMessage_PtyClose:
+			handlePtyClose(p.PtyClose)
 		}
 	}
 }
@@ -377,6 +414,119 @@ func handleFileList(stream agentpb.TunnelService_ConnectClient, nodeID, nodeName
 	})
 }
 
+// ===== PTY Session Management =====
+
+var ptySessions sync.Map // session_id -> *os.File
+
+func handlePtyStart(stream agentpb.TunnelService_ConnectClient, nodeID, nodeName string, req *agentpb.PtyStart) {
+	// Create a pseudo-terminal
+	pty, tty, err := openPty()
+	if err != nil {
+		stream.Send(&agentpb.ClientMessage{
+			NodeId: nodeID, NodeName: nodeName,
+			Payload: &agentpb.ClientMessage_PtyOutput{PtyOutput: &agentpb.PtyOutput{
+				SessionId: req.SessionId, Closed: true,
+			}},
+		})
+		slog.Error("pty open failed", "error", err)
+		return
+	}
+	defer pty.Close()
+	defer tty.Close()
+
+	ptySessions.Store(req.SessionId, pty)
+	defer ptySessions.Delete(req.SessionId)
+
+	// Set window size
+	if req.Cols > 0 && req.Rows > 0 {
+		setPtyWinsize(pty.Fd(), uint16(req.Cols), uint16(req.Rows))
+	}
+
+	// Start shell in a new session
+	cmd := exec.Command(os.Getenv("SHELL"))
+	if cmd.Path == "" {
+		cmd.Path = "/bin/bash"
+	}
+	cmd.Stdin = tty
+	cmd.Stdout = tty
+	cmd.Stderr = tty
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid:  true,
+		Setctty: true,
+	}
+	cmd.Env = append(os.Environ(),
+		"TERM="+stringOrDefault(req.Term, "xterm-256color"),
+		"LANG=C.UTF-8",
+		"LC_ALL=C.UTF-8",
+	)
+
+	if err := cmd.Start(); err != nil {
+		stream.Send(&agentpb.ClientMessage{
+			NodeId: nodeID, NodeName: nodeName,
+			Payload: &agentpb.ClientMessage_PtyOutput{PtyOutput: &agentpb.PtyOutput{
+				SessionId: req.SessionId, Closed: true,
+			}},
+		})
+		return
+	}
+
+	// Read loop: pty → stream
+	go func() {
+		buf := make([]byte, 8192)
+		for {
+			n, err := pty.Read(buf)
+			if n > 0 {
+				data := make([]byte, n)
+				copy(data, buf[:n])
+				stream.Send(&agentpb.ClientMessage{
+					NodeId: nodeID, NodeName: nodeName,
+					Payload: &agentpb.ClientMessage_PtyOutput{PtyOutput: &agentpb.PtyOutput{
+						SessionId: req.SessionId, Data: data,
+					}},
+				})
+			}
+			if err != nil {
+				stream.Send(&agentpb.ClientMessage{
+					NodeId: nodeID, NodeName: nodeName,
+					Payload: &agentpb.ClientMessage_PtyOutput{PtyOutput: &agentpb.PtyOutput{
+						SessionId: req.SessionId, Closed: true,
+					}},
+				})
+				return
+			}
+		}
+	}()
+
+	cmd.Wait()
+}
+
+func handlePtyInput(input *agentpb.PtyInput) {
+	if pty, ok := ptySessions.Load(input.SessionId); ok {
+		pty.(*os.File).Write(input.Data)
+	}
+}
+
+func handlePtyResize(resize *agentpb.PtyResize) {
+	if pty, ok := ptySessions.Load(resize.SessionId); ok {
+		if resize.Cols > 0 && resize.Rows > 0 {
+			setPtyWinsize(pty.(*os.File).Fd(), uint16(resize.Cols), uint16(resize.Rows))
+		}
+	}
+}
+
+func handlePtyClose(close *agentpb.PtyClose) {
+	if pty, ok := ptySessions.LoadAndDelete(close.SessionId); ok {
+		pty.(*os.File).Close()
+	}
+}
+
+func stringOrDefault(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
 func maxInt(a, b int) int {
 	if a > b {
 		return a
@@ -393,4 +543,12 @@ func init() {
 		slog.Info("agent shutting down")
 		os.Exit(0)
 	}()
+}
+
+// extractHost returns the hostname portion from an address like "host:port"
+func extractHost(addr string) string {
+	if idx := strings.LastIndex(addr, ":"); idx > 0 {
+		return addr[:idx]
+	}
+	return addr
 }

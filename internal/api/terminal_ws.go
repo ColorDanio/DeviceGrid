@@ -46,7 +46,8 @@ func (r *Router) handleTerminalWS(conn *websocket.Conn, nodeID string) {
 		}
 	}
 
-	session, err := r.sshMgr.NewPTYSession(ctx, nodeID, initialCols, initialRows)
+	// Use transport manager — prefers agent tunnel if connected, falls back to SSH
+	session, err := r.transport.PTY(ctx, nodeID, initialCols, initialRows)
 	if err != nil {
 		slog.Error("ws terminal pty", "node", nodeID, "error", err)
 		errJSON, _ := json.Marshal(wsServerMsg{Type: "error", Data: err.Error()})

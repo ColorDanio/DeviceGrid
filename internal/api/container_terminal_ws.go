@@ -33,7 +33,8 @@ func (r *Router) handleContainerTerminalWS(conn *websocket.Conn, nodeID, contain
 		}
 	}
 
-	session, err := r.sshMgr.NewContainerPTYSession(ctx, nodeID, containerID, initialCols, initialRows)
+	// Use transport manager — prefers agent tunnel if connected
+	session, err := r.transport.ContainerPTY(ctx, nodeID, containerID, initialCols, initialRows)
 	if err != nil {
 		errJSON, _ := json.Marshal(wsServerMsg{Type: "error", Data: err.Error()})
 		conn.WriteMessage(websocket.TextMessage, errJSON)
