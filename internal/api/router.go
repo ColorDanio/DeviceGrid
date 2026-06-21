@@ -305,6 +305,15 @@ func (r *Router) registerRKE2Routes(rg *gin.RouterGroup) {
 		clusters.GET("/:cid/status", h.Status)
 		clusters.POST("/:cid/upgrade", h.Upgrade)
 		clusters.DELETE("/:cid", h.Delete)
+		// Helm management
+		clusters.GET("/:cid/helm", h.HelmList)
+		clusters.POST("/:cid/helm/install", h.HelmInstall)
+		clusters.DELETE("/:cid/helm/:release", h.HelmUninstall)
+		// Rancher
+		clusters.POST("/:cid/rancher", h.InstallRancher)
+		clusters.GET("/:cid/rancher", h.RancherStatus)
+		// Pods
+		clusters.GET("/:cid/pods", h.GetPods)
 	}
 }
 
