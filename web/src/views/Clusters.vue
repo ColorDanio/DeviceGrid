@@ -88,7 +88,18 @@
           </div>
           <div class="cfg-row">
             <label>RKE2 版本</label>
-            <input v-model="form.version" placeholder="留空使用最新版" />
+            <select v-model="form.version">
+              <option value="">最新稳定版 (latest)</option>
+              <option value="v1.31.5+rke2r1">v1.31.5+rke2r1</option>
+              <option value="v1.31.4+rke2r1">v1.31.4+rke2r1</option>
+              <option value="v1.31.3+rke2r1">v1.31.3+rke2r1</option>
+              <option value="v1.30.9+rke2r1">v1.30.9+rke2r1</option>
+              <option value="v1.30.8+rke2r1">v1.30.8+rke2r1</option>
+              <option value="v1.30.6+rke2r1">v1.30.6+rke2r1</option>
+              <option value="v1.29.13+rke2r1">v1.29.13+rke2r1</option>
+              <option value="v1.29.12+rke2r1">v1.29.12+rke2r1</option>
+              <option value="v1.28.15+rke2r1">v1.28.15+rke2r1</option>
+            </select>
           </div>
           <div class="cfg-row">
             <label>CNI 插件</label>
