@@ -190,8 +190,18 @@ systemctl daemon-reload
 %s
 
 # Pre-install: ensure prerequisites
+# 1. Disable swap (K8s requirement)
+swapoff -a 2>/dev/null || true
+cp /etc/fstab /etc/fstab.bak.$(date +%%s) 2>/dev/null || true
+sed -i '/swap/d' /etc/fstab 2>/dev/null || true
+
+# 2. Load kernel modules
 modprobe overlay 2>/dev/null || true
 modprobe br_netfilter 2>/dev/null || true
+echo 'overlay' > /etc/modules-load.d/rke2.conf 2>/dev/null || true
+echo 'br_netfilter' >> /etc/modules-load.d/rke2.conf 2>/dev/null || true
+
+# 3. Sysctl settings
 cat > /etc/sysctl.d/99-rke2.conf << 'SYSCTLEOF'
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1

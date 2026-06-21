@@ -315,6 +315,12 @@ func (r *Router) registerRKE2Routes(rg *gin.RouterGroup) {
 		// Pods
 		clusters.GET("/:cid/pods", h.GetPods)
 	}
+
+	// Pre-flight check (per node, not per cluster)
+	{
+		rg.GET("/nodes/:id/preflight", h.PreFlightCheck)
+		rg.POST("/nodes/:id/preflight", h.PreFlightCheck) // POST for autofix
+	}
 }
 
 func stubHandler(name string) gin.HandlerFunc {

@@ -150,3 +150,16 @@ func (h *RKE2Handler) GetPods(c *gin.Context) {
 	}
 	OK(c, gin.H{"pods": pods})
 }
+
+// PreFlightCheck runs hardware and system checks before RKE2 installation
+func (h *RKE2Handler) PreFlightCheck(c *gin.Context) {
+	nodeID := c.Param("id")
+	autoFix := c.Query("autofix") == "true"
+
+	result, err := h.rke2.PreFlightCheck(c.Request.Context(), nodeID, autoFix)
+	if err != nil {
+		Error(c, http.StatusBadGateway, "pre-flight check failed: "+err.Error())
+		return
+	}
+	OK(c, result)
+}
