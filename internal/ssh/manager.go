@@ -47,29 +47,37 @@ func (m *Manager) getClient(ctx context.Context, nodeID string) (*ssh.Client, er
 
 func (m *Manager) getClientForNode(node *model.Node) (*ssh.Client, error) {
 	m.mu.Lock()
-	if pool, ok := m.pools[node.ID]; ok {
-		m.mu.Unlock()
-		if client := pool.get(); client != nil {
-			return client, nil
-		}
-		m.mu.Lock()
-	}
-	m.mu.Unlock()
-
-	client, err := m.dial(node)
-	if err != nil {
-		return nil, err
-	}
-
-	m.mu.Lock()
 	pool, ok := m.pools[node.ID]
 	if !ok {
 		pool = newNodePool(node.ID, m.config.MaxConnections)
 		m.pools[node.ID] = pool
 	}
 	m.mu.Unlock()
-	pool.put(client)
+
+	// Try to get an existing idle connection
+	if client := pool.get(); client != nil {
+		return client, nil
+	}
+
+	// No idle connection — dial a new one
+	client, err := m.dial(node)
+	if err != nil {
+		return nil, err
+	}
+
 	return client, nil
+}
+
+// releaseClient returns a client to the pool for reuse
+func (m *Manager) releaseClient(nodeID string, client *ssh.Client) {
+	m.mu.Lock()
+	pool, ok := m.pools[nodeID]
+	if !ok {
+		pool = newNodePool(nodeID, m.config.MaxConnections)
+		m.pools[nodeID] = pool
+	}
+	m.mu.Unlock()
+	pool.put(client)
 }
 
 func (m *Manager) dial(node *model.Node) (*ssh.Client, error) {
@@ -166,13 +174,6 @@ func (p *nodePool) get() *ssh.Client {
 	}
 	client := p.clients[len(p.clients)-1]
 	p.clients = p.clients[:len(p.clients)-1]
-
-	session, err := client.NewSession()
-	if err != nil {
-		client.Close()
-		return nil
-	}
-	session.Close()
 	return client
 }
 

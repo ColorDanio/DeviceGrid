@@ -23,6 +23,7 @@ func (m *Manager) Exec(ctx context.Context, nodeID string, cmd string) (ExecResu
 	if err != nil {
 		return ExecResult{}, err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	session, err := client.NewSession()
 	if err != nil {
@@ -65,22 +66,26 @@ func (m *Manager) ExecStream(ctx context.Context, nodeID string, cmd string) (<-
 
 	session, err := client.NewSession()
 	if err != nil {
+		m.releaseClient(nodeID, client)
 		return nil, fmt.Errorf("new session: %w", err)
 	}
 
 	stdoutPipe, err := session.StdoutPipe()
 	if err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, err
 	}
 	stderrPipe, err := session.StderrPipe()
 	if err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, err
 	}
 
 	if err := session.Start(cmd); err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, fmt.Errorf("start command: %w", err)
 	}
 
@@ -88,6 +93,7 @@ func (m *Manager) ExecStream(ctx context.Context, nodeID string, cmd string) (<-
 
 	go func() {
 		defer session.Close()
+		defer m.releaseClient(nodeID, client)
 		defer close(ch)
 
 		done := make(chan struct{})
@@ -126,6 +132,7 @@ func (m *Manager) Upload(ctx context.Context, nodeID string, remotePath string, 
 	if err != nil {
 		return err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	session, err := client.NewSession()
 	if err != nil {
@@ -163,6 +170,7 @@ func (m *Manager) Download(ctx context.Context, nodeID string, remotePath string
 	if err != nil {
 		return nil, err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	session, err := client.NewSession()
 	if err != nil {
@@ -185,6 +193,7 @@ func (m *Manager) Ping(ctx context.Context, nodeID string) error {
 	if err != nil {
 		return err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	session, err := client.NewSession()
 	if err != nil {

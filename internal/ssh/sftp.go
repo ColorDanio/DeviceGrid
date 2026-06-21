@@ -12,10 +12,6 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-func sftpNewClient(client *ssh.Client) (*sftp.Client, error) {
-	return sftp.NewClient(client)
-}
-
 type FileEntry struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
@@ -25,14 +21,19 @@ type FileEntry struct {
 	Mode    string `json:"mode"`
 }
 
+func sftpNewClient(client *ssh.Client) (*sftp.Client, error) {
+	return sftp.NewClient(client)
+}
+
 func (m *Manager) SFTPListDir(ctx context.Context, nodeID, dirPath string) ([]FileEntry, error) {
 	client, err := m.getClient(ctx, nodeID)
 	if err != nil {
 		return nil, err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	if dirPath == "" {
-		dirPath = "."
+		dirPath = "/"
 	}
 
 	sftp, err := sftpNewClient(client)
@@ -78,6 +79,7 @@ func (m *Manager) SFTPUpload(ctx context.Context, nodeID, remotePath string, con
 	if err != nil {
 		return err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	sftp, err := sftpNewClient(client)
 	if err != nil {
@@ -87,7 +89,6 @@ func (m *Manager) SFTPUpload(ctx context.Context, nodeID, remotePath string, con
 
 	dir := path.Dir(remotePath)
 	if err := sftp.MkdirAll(dir); err != nil {
-		// ignore if dir exists
 	}
 
 	f, err := sftp.Create(remotePath)
@@ -105,6 +106,7 @@ func (m *Manager) SFTPDownload(ctx context.Context, nodeID, remotePath string) (
 	if err != nil {
 		return nil, err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	sftp, err := sftpNewClient(client)
 	if err != nil {
@@ -141,6 +143,7 @@ func (m *Manager) SFTPDelete(ctx context.Context, nodeID, remotePath string) err
 	if err != nil {
 		return err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	sftp, err := sftpNewClient(client)
 	if err != nil {
@@ -164,6 +167,7 @@ func (m *Manager) SFTPMkdir(ctx context.Context, nodeID, dirPath string) error {
 	if err != nil {
 		return err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	sftp, err := sftpNewClient(client)
 	if err != nil {
@@ -179,6 +183,7 @@ func (m *Manager) SFTPRename(ctx context.Context, nodeID, oldPath, newPath strin
 	if err != nil {
 		return err
 	}
+	defer m.releaseClient(nodeID, client)
 
 	sftp, err := sftpNewClient(client)
 	if err != nil {
