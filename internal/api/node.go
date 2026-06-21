@@ -2,8 +2,11 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -288,13 +291,12 @@ func (h *NodeHandler) DeployAgent(c *gin.Context) {
 		return
 	}
 
-	if node.Status != model.NodeStatusOnline && node.AuthMode != "key" {
+	if node.AuthMode != "key" && node.PasswordEnc == "" {
 		BadRequest(c, "节点需要先完成授信才能部署 Agent")
 		return
 	}
 
-	// Deploy agent binary via SSH
-	// Step 1: Determine architecture
+	// Step 1: Detect architecture
 	result, err := h.transport.Exec(c.Request.Context(), nodeID, "uname -m")
 	if err != nil {
 		Error(c, http.StatusBadGateway, "检测架构失败: "+err.Error())
@@ -306,17 +308,153 @@ func (h *NodeHandler) DeployAgent(c *gin.Context) {
 		agentArch = "arm64"
 	}
 
-	// Step 2: Upload agent binary (from local dist or bin)
-	// In production, this would be the pre-built agent binary
-	// For now, return instructions
+	// Step 2: Find local agent binary
+	agentPath := fmt.Sprintf("bin/devicegrid-agent-linux-%s", agentArch)
+	if _, err := os.Stat(agentPath); err != nil {
+		// Fallback: try bin/devicegrid-agent (local arch)
+		agentPath = "bin/devicegrid-agent"
+		if _, err := os.Stat(agentPath); err != nil {
+			// Try dist/
+			agentPath = fmt.Sprintf("dist/agent-linux-%s", agentArch)
+			if _, err := os.Stat(agentPath); err != nil {
+				Error(c, http.StatusInternalServerError, fmt.Sprintf("Agent 二进制不存在 (尝试: bin/devicegrid-agent-linux-%s, bin/devicegrid-agent)。请先运行 make build-agent-all", agentArch))
+				return
+			}
+		}
+	}
+
+	// Step 3: Upload agent binary via SFTP
+	file, err := os.Open(agentPath)
+	if err != nil {
+		InternalError(c, "打开 agent 二进制失败: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	remotePath := "/usr/local/bin/devicegrid-agent"
+	uploadErr := h.sshMgr.SFTPUpload(c.Request.Context(), nodeID, remotePath, file)
+	if uploadErr != nil {
+		// Fallback: use base64 transfer via exec
+		uploadErr = h.uploadAgentViaBase64(c.Request.Context(), nodeID, agentPath, remotePath)
+		if uploadErr != nil {
+			Error(c, http.StatusBadGateway, "上传 Agent 失败: "+uploadErr.Error())
+			return
+		}
+	}
+
+	// Step 4: Create systemd service and start
+	serverHost := c.Request.Host
+	if idx := strings.LastIndex(serverHost, ":"); idx > 0 {
+		serverHost = serverHost[:idx]
+	}
+	if serverHost == "" || serverHost == "localhost" {
+		// Try to get server's outbound IP
+		serverHost = h.getServerIP()
+	}
+
+	systemdScript := fmt.Sprintf(`
+cat > /etc/systemd/system/devicegrid-agent.service << 'EOF'
+[Unit]
+Description=DeviceGrid Agent
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/devicegrid-agent -server %s:9090 -node-id %s -node-name '%s'
+Restart=always
+RestartSec=5
+# Resource limits — keep agent lightweight
+MemoryMax=64M
+CPUQuota=5%%
+LimitNOFILE=128
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+chmod +x %s
+systemctl daemon-reload
+systemctl enable devicegrid-agent
+systemctl restart devicegrid-agent
+sleep 1
+systemctl is-active devicegrid-agent
+`, serverHost, nodeID, node.Name, remotePath)
+
+	result, err = h.transport.Exec(c.Request.Context(), nodeID, systemdScript)
+	if err != nil {
+		Error(c, http.StatusBadGateway, "systemd 注册失败: "+err.Error())
+		return
+	}
+
+	// Update node transport mode
+	node.TransportMode = model.TransportAgent
+	node.AgentPort = 9090
+	_ = h.repos.Nodes().Update(c.Request.Context(), node)
+
+	active := strings.TrimSpace(result.Stdout)
+	status := "deployed"
+	if active != "active" {
+		status = "installed_but_inactive"
+	}
+
 	OK(c, gin.H{
-		"node_id": nodeID,
-		"name":    node.Name,
-		"arch":    agentArch,
-		"status":  "ready",
-		"command": fmt.Sprintf("./devicegrid-agent-%s -server <server-ip>:9090 -node-id %s -node-name %s", agentArch, node.ID, node.Name),
-		"message": fmt.Sprintf("Agent 部署准备完成（架构: %s）。请将 agent 二进制上传到节点并执行上述命令。", arch),
+		"node_id":   nodeID,
+		"name":      node.Name,
+		"arch":      agentArch,
+		"binary":    agentPath,
+		"server":    fmt.Sprintf("%s:9090", serverHost),
+		"status":    status,
+		"active":    active,
+		"output":    result.Stdout,
+		"message":   fmt.Sprintf("Agent 已部署到 %s (架构: %s, systemd: %s)", node.Name, arch, active),
 	})
+}
+
+// uploadAgentViaBase64 is a fallback when SFTP is unavailable
+func (h *NodeHandler) uploadAgentViaBase64(ctx context.Context, nodeID, localPath, remotePath string) error {
+	data, err := os.ReadFile(localPath)
+	if err != nil {
+		return fmt.Errorf("read agent binary: %w", err)
+	}
+
+	// Upload in 512KB chunks via base64
+	chunkSize := 393216 // 512KB raw → ~682KB base64
+	for i := 0; i < len(data); i += chunkSize {
+		end := i + chunkSize
+		if end > len(data) {
+			end = len(data)
+		}
+		chunk := data[i:end]
+		encoded := base64.StdEncoding.EncodeToString(chunk)
+
+		if i == 0 {
+			// First chunk — create file
+			_, err = h.transport.Exec(ctx, nodeID, fmt.Sprintf("echo '%s' | base64 -d > %s", encoded, remotePath))
+		} else {
+			// Append
+			_, err = h.transport.Exec(ctx, nodeID, fmt.Sprintf("echo '%s' | base64 -d >> %s", encoded, remotePath))
+		}
+		if err != nil {
+			return fmt.Errorf("upload chunk %d: %w", i/chunkSize, err)
+		}
+	}
+
+	// Make executable
+	_, err = h.transport.Exec(ctx, nodeID, fmt.Sprintf("chmod +x %s", remotePath))
+	return err
+}
+
+func (h *NodeHandler) getServerIP() string {
+	// Try to determine outbound IP by checking what the node would see
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "localhost"
+	}
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
 }
 
 func (h *NodeHandler) Facts(c *gin.Context) {

@@ -121,6 +121,10 @@
               <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               授信
             </button>
+            <button class="action-btn action-agent" @click.stop="handleDeployAgent((row as any))" v-if="(row as any).auth_mode === 'key' || (row as any).status === 'online'">
+              <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Agent
+            </button>
             <button class="action-btn action-edit" @click.stop="showEditDialog((row as any))">
               <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               编辑
@@ -186,7 +190,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { listNodes, createNode, updateNode, deleteNode, establishTrust, checkHealth, type Node, type NodeFilter } from '@/api/nodes'
+import { listNodes, createNode, updateNode, deleteNode, establishTrust, deployAgent, checkHealth, type Node, type NodeFilter } from '@/api/nodes'
 import client from '@/api/client'
 
 const router = useRouter()
@@ -298,6 +302,26 @@ async function handleTrust(node: Node) {
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || '未知错误'
     ElMessageBox.alert(msg, `${node.name} 授信失败`, { confirmButtonText: '知道了', type: 'error' })
+  }
+}
+
+async function handleDeployAgent(node: Node) {
+  ElMessage.info(`正在向 ${node.name} 部署 Agent...`)
+  try {
+    const result = await deployAgent(node.id)
+    if (result.status === 'deployed') {
+      ElMessage.success(`Agent 部署成功！架构: ${result.arch}, systemd: ${result.active}`)
+    } else {
+      ElMessageBox.alert(
+        `Agent 已安装但 systemd 状态异常 (${result.active})\n\n输出: ${result.output || '无'}`,
+        `${node.name} Agent 部署`,
+        { type: 'warning' }
+      )
+    }
+    loadNodes()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || '未知错误'
+    ElMessageBox.alert(msg, `${node.name} Agent 部署失败`, { confirmButtonText: '知道了', type: 'error' })
   }
 }
 
@@ -470,6 +494,7 @@ onBeforeUnmount(() => {
   &:hover { border-color: var(--accent); color: var(--accent); }
   &.action-danger:hover { border-color: var(--dg-danger); color: var(--dg-danger); }
   &.action-edit:hover { border-color: var(--accent); color: var(--accent); }
+  &.action-agent:hover { border-color: var(--dg-success); color: var(--dg-success); }
 }
 .action-cell { display: flex; gap: 3px; flex-wrap: wrap; }
 
