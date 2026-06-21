@@ -21,10 +21,9 @@ func (m *Manager) NewPTYSession(ctx context.Context, nodeID string, cols, rows u
 }
 
 func (m *Manager) NewContainerPTYSession(ctx context.Context, nodeID, containerID string, cols, rows uint16) (*PTYSession, error) {
-	dockerPath := "$(/usr/bin/which docker 2>/dev/null || echo /usr/bin/docker)"
 	cmd := fmt.Sprintf(
-		`%s exec -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TERM=xterm-256color -it %s bash || %s exec -e LANG=C.UTF-8 -e LC_ALL=C.UTF-8 -e TERM=xterm-256color -it %s sh`,
-		dockerPath, containerID, dockerPath, containerID,
+		`DPATH=""; for p in /usr/bin/docker /usr/local/bin/docker /snap/bin/docker; do [ -x "$p" ] && DPATH="$p" && break; done; [ -z "$DPATH" ] && DPATH=docker; $DPATH exec -it %s bash 2>/dev/null || $DPATH exec -it %s sh`,
+		containerID, containerID,
 	)
 	return m.newPTYWithCommand(ctx, nodeID, cols, rows, cmd)
 }

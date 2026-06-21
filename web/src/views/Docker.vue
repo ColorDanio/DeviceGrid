@@ -253,18 +253,45 @@ async function composeDown() {
 
 // Container exec terminal
 const execVisible = ref(false); const execName = ref(''); const execTermEl = ref<HTMLElement>()
-let execTerm: Terminal | null = null; let execWs: WebSocket | null = null; let execCid = ''
+let execTerm: Terminal | null = null; let execWs: WebSocket | null = null; let execCid = ''; let execFit: any = null
 function execContainer(c: ContainerInfo) { execCid = c.id; execName.value = c.name; execVisible.value = true }
 function initExecTerm() {
   if (!execTermEl.value) return
   const { term, fit } = createTerminal(execTermEl.value)
   execTerm = term
-  const token = localStorage.getItem('dg_token') || ''; const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  execFit = fit
+  // Fit after dialog is fully rendered
+  setTimeout(() => { try { fit.fit() } catch {} }, 100)
+
+  const token = localStorage.getItem('dg_token') || ''
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   execWs = new WebSocket(`${proto}://${location.host}/ws/container/${selectedNode.value}/${execCid}?token=${token}`)
-  execWs.onopen = () => execWs!.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
-  execWs.onmessage = (ev) => { try { const m = JSON.parse(ev.data); if (m.type === 'output') execTerm!.write(decodeBase64(m.data)) } catch {} }
-  execWs.onclose = () => execTerm?.writeln('\x1b[33m\r\n● 连接已关闭\x1b[0m')
-  execTerm.onData((d) => { if (execWs?.readyState === WebSocket.OPEN) execWs.send(JSON.stringify({ type: 'input', data: d })) })
+
+  execWs.onopen = () => {
+    if (execWs?.readyState === WebSocket.OPEN) {
+      execWs.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+    }
+  }
+  execWs.onmessage = (ev) => {
+    try {
+      const m = JSON.parse(ev.data)
+      if (m.type === 'output') execTerm!.write(decodeBase64(m.data))
+      else if (m.type === 'error') execTerm!.writeln(`\x1b[31m${m.data}\x1b[0m`)
+    } catch {}
+  }
+  execWs.onerror = () => { execTerm?.writeln('\x1b[31m● 连接错误\x1b[0m') }
+  execWs.onclose = () => { execTerm?.writeln('\x1b[33m\r\n● 连接已关闭\x1b[0m') }
+
+  execTerm.onData((d) => {
+    if (execWs?.readyState === WebSocket.OPEN) {
+      execWs.send(JSON.stringify({ type: 'input', data: d }))
+    }
+  })
+  execTerm.onResize(({ cols, rows }) => {
+    if (execWs?.readyState === WebSocket.OPEN) {
+      execWs.send(JSON.stringify({ type: 'resize', cols, rows }))
+    }
+  })
 }
 function closeExecTerm() { if (execWs) { execWs.close(); execWs = null } if (execTerm) { execTerm.dispose(); execTerm = null } }
 
