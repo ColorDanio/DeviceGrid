@@ -20,6 +20,8 @@ type HealthChecker struct {
 	mu        sync.Mutex
 	running   bool
 	cancel    context.CancelFunc
+	// Track consecutive failures before marking offline
+	failures  map[string]int
 }
 
 func NewHealthChecker(repos repo.Repositories, tm *transport.Manager, hub *ws.Hub) *HealthChecker {
@@ -27,7 +29,8 @@ func NewHealthChecker(repos repo.Repositories, tm *transport.Manager, hub *ws.Hu
 		repos:     repos,
 		transport: tm,
 		hub:       hub,
-		interval:  10 * time.Second,
+		interval:  30 * time.Second,
+		failures:  make(map[string]int),
 	}
 }
 
@@ -137,61 +140,75 @@ func (hc *HealthChecker) checkNode(ctx context.Context, node *model.Node) NodeSt
 		Status: string(node.Status),
 	}
 
-	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// Single fast Ping check with generous timeout
+	pingCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	err := hc.transport.Ping(pingCtx, node.ID)
 	if err != nil {
-		slog.Debug("node health check failed", "node", node.Name, "error", err)
-		status.Status = string(model.NodeStatusOffline)
-		_ = hc.repos.Nodes().UpdateStatus(ctx, node.ID, model.NodeStatusOffline)
+		slog.Debug("node health check ping failed", "node", node.Name, "error", err)
+
+		// Increment failure counter — require 2 consecutive failures before marking offline
+		hc.mu.Lock()
+		hc.failures[node.ID]++
+		failureCount := hc.failures[node.ID]
+		hc.mu.Unlock()
+
+		if failureCount >= 2 && node.Status == model.NodeStatusOnline {
+			slog.Warn("node marked offline after consecutive failures", "node", node.Name, "failures", failureCount)
+			status.Status = string(model.NodeStatusOffline)
+			_ = hc.repos.Nodes().UpdateStatus(ctx, node.ID, model.NodeStatusOffline)
+		} else {
+			// Still online — transient failure
+			status.Status = string(node.Status)
+		}
 		return status
 	}
 
-	status.Status = string(model.NodeStatusOnline)
-	_ = hc.repos.Nodes().UpdateStatus(ctx, node.ID, model.NodeStatusOnline)
+	// Ping succeeded — reset failure counter
+	hc.mu.Lock()
+	delete(hc.failures, node.ID)
+	hc.mu.Unlock()
 
-	if facts, err := hc.transport.Facts(ctx, node.ID); err == nil {
-		if node.OS != facts.OS || node.Arch != facts.Arch || node.DockerVersion != facts.DockerVersion {
+	status.Status = string(model.NodeStatusOnline)
+	if node.Status != model.NodeStatusOnline {
+		_ = hc.repos.Nodes().UpdateStatus(ctx, node.ID, model.NodeStatusOnline)
+	}
+
+	// Do NOT fetch Facts/Metrics here — MetricsCache handles that separately
+	// This keeps the health check lightweight (one SSH session per node)
+
+	// Light facts refresh only on status change (offline → online)
+	if node.Status != model.NodeStatusOnline {
+		factsCtx, fCancel := context.WithTimeout(ctx, 10*time.Second)
+		defer fCancel()
+		if facts, err := hc.transport.Facts(factsCtx, node.ID); err == nil {
 			node.OS = facts.OS
 			node.Arch = facts.Arch
 			node.DockerVersion = facts.DockerVersion
 			_ = hc.repos.Nodes().Update(ctx, node)
+			status.OS = facts.OS
+			status.Arch = facts.Arch
+			status.DockerVersion = facts.DockerVersion
 		}
-		status.OS = facts.OS
-		status.Arch = facts.Arch
-		status.DockerVersion = facts.DockerVersion
-	}
-
-	metricsCtx, mCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer mCancel()
-	if metrics, err := hc.transport.Metrics(metricsCtx, node.ID); err == nil {
-		status.CPUUsage = metrics.CPUUsage
-		status.CPUCores = metrics.CPUCores
-		status.MemTotal = metrics.MemTotal
-		status.MemUsed = metrics.MemUsed
-		status.DiskTotal = metrics.DiskTotal
-		status.DiskUsed = metrics.DiskUsed
-		status.Uptime = metrics.Uptime
-		status.GPUs = metrics.GPUs
 	}
 
 	return status
 }
 
 type NodeStatus struct {
-	NodeID        string             `json:"node_id"`
-	Name          string             `json:"name"`
-	Status        string             `json:"status"`
-	OS            string             `json:"os,omitempty"`
-	Arch          string             `json:"arch,omitempty"`
-	DockerVersion string             `json:"docker_version,omitempty"`
+	NodeID        string              `json:"node_id"`
+	Name          string              `json:"name"`
+	Status        string              `json:"status"`
+	OS            string              `json:"os,omitempty"`
+	Arch          string              `json:"arch,omitempty"`
+	DockerVersion string              `json:"docker_version,omitempty"`
 	CPUUsage      float64             `json:"cpu_usage,omitempty"`
 	CPUCores      int                 `json:"cpu_cores,omitempty"`
-	MemTotal      uint64             `json:"mem_total,omitempty"`
-	MemUsed       uint64             `json:"mem_used,omitempty"`
-	DiskTotal     uint64             `json:"disk_total,omitempty"`
-	DiskUsed      uint64             `json:"disk_used,omitempty"`
-	Uptime        uint64             `json:"uptime,omitempty"`
+	MemTotal      uint64              `json:"mem_total,omitempty"`
+	MemUsed       uint64              `json:"mem_used,omitempty"`
+	DiskTotal     uint64              `json:"disk_total,omitempty"`
+	DiskUsed      uint64              `json:"disk_used,omitempty"`
+	Uptime        uint64              `json:"uptime,omitempty"`
 	GPUs          []transport.GPUInfo `json:"gpus,omitempty"`
 }
