@@ -37,6 +37,7 @@ type Router struct {
 	metricsCache *node.MetricsCache
 	network      config.NetworkConfig
 	corsOrigins  []string
+	alertMgr     *node.AlertManager
 }
 
 func NewRouter(
@@ -48,6 +49,7 @@ func NewRouter(
 	sshMgr *ssh.Manager,
 	metricsCache *node.MetricsCache,
 	network config.NetworkConfig,
+	alertMgr *node.AlertManager,
 ) *Router {
 	return &Router{
 		repos:        repos,
@@ -58,6 +60,7 @@ func NewRouter(
 		sshMgr:       sshMgr,
 		metricsCache: metricsCache,
 		network:      network,
+		alertMgr:     alertMgr,
 	}
 }
 
@@ -124,6 +127,7 @@ func (r *Router) Setup(mode string) *gin.Engine {
 			r.registerDeployRoutes(protected)
 			r.registerRKE2Routes(protected)
 			r.registerUserRoutes(protected)
+			r.registerAlertRoutes(protected)
 		}
 	}
 
@@ -351,6 +355,17 @@ func stubHandler(name string) gin.HandlerFunc {
 			"message":  name + " — will be implemented in later phases",
 			"endpoint": c.Request.URL.Path,
 		})
+	}
+}
+
+func (r *Router) registerAlertRoutes(rg *gin.RouterGroup) {
+	ah := NewAlertHandler(r.alertMgr)
+	alerts := rg.Group("/alerts")
+	{
+		alerts.GET("/rules", ah.ListRules)
+		alerts.POST("/rules", ah.CreateRule)
+		alerts.DELETE("/rules/:rid", ah.DeleteRule)
+		alerts.POST("/test", ah.TestWebhook)
 	}
 }
 

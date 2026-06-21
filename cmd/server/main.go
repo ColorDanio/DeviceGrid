@@ -136,8 +136,26 @@ func main() {
 	metricsCache.Start()
 	defer metricsCache.Stop()
 
+	alertMgr := node.NewAlertManager(repos, transportMgr)
+	// Default alert rules
+	alertMgr.SetRules([]node.AlertRule{
+		{ID: "default-offline", Name: "节点离线告警", Enabled: true, Metric: "node_offline", Operator: ">", Threshold: 0, CooldownM: 30},
+		{ID: "default-cpu", Name: "CPU > 90%", Enabled: true, Metric: "cpu", Operator: ">", Threshold: 90, CooldownM: 15},
+		{ID: "default-disk", Name: "磁盘 > 90%", Enabled: true, Metric: "disk", Operator: ">", Threshold: 90, CooldownM: 60},
+	})
+
+	// Alert checker goroutine
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		alertMgr.CheckAll(context.Background())
+		for range ticker.C {
+			alertMgr.CheckAll(context.Background())
+		}
+	}()
+
 	jm := auth.NewJWTManager(cfg.Auth.JWTSectet, cfg.Auth.JWTExpire)
-	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network)
+	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, alertMgr)
 	engine := router.Setup(cfg.Server.Mode)
 
 	web.RegisterStaticFiles(engine, cfg.IsDebug())
