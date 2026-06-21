@@ -92,8 +92,16 @@
             <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column prop="username" label="用户" width="90" />
-        <el-table-column label="通信" width="90">
+        <el-table-column prop="username" label="用户" width="80" />
+        <el-table-column label="硬件" min-width="200">
+          <template #default="{ row }">
+            <div class="hw-cell" v-if="hardwareInfo[(row as any).id]">
+              <span class="hw-item" title="CPU">{{ hardwareInfo[(row as any).id] }}</span>
+            </div>
+            <span v-else class="text-muted">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="通信" width="80">
           <template #default="{ row }">
             <span class="chip" :class="(row as any).transport_mode">{{ (row as any).transport_mode === 'agent' ? 'Agent' : 'SSH' }}</span>
           </template>
@@ -190,7 +198,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { listNodes, createNode, updateNode, deleteNode, establishTrust, deployAgent, checkHealth, type Node, type NodeFilter } from '@/api/nodes'
+import { listNodes, createNode, updateNode, deleteNode, establishTrust, deployAgent, checkHealth, getMetrics, type Node, type NodeFilter } from '@/api/nodes'
 import client from '@/api/client'
 
 const router = useRouter()
@@ -207,6 +215,7 @@ const selectedRows = ref<Node[]>([])
 const selectedNodes = ref<string[]>([])
 const batchProgress = ref({ active: false, total: 0, done: 0, label: '' })
 const filter = reactive<NodeFilter>({ search: '', status: '' })
+const hardwareInfo = ref<Record<string, string>>({})
 
 const form = reactive({ name: '', host: '', port: 22, username: 'root', password: '', privateKey: '', tags: [] as string[] })
 const rules: FormRules = {
@@ -230,6 +239,27 @@ function formatTime(t: string) {
 async function loadNodes() {
   loading.value = true
   try { nodes.value = await listNodes(filter) } finally { loading.value = false }
+  loadHardware()
+}
+
+async function loadHardware() {
+  const online = nodes.value.filter(n => n.status === 'online')
+  await Promise.allSettled(online.map(async n => {
+    try {
+      const m = await getMetrics(n.id)
+      const cpu = m.cpu_sockets > 0 ? `${m.cpu_sockets}P×${m.cpu_cores}C/${m.cpu_threads}T` : `${m.cpu_cores || '?'}C`
+      const mem = m.mem_total > 0 ? fmtBytes(m.mem_total) : '?'
+      const disk = m.disk_total > 0 ? fmtBytes(m.disk_total) : '?'
+      hardwareInfo.value[n.id] = `CPU: ${cpu} | Mem: ${mem} | Disk: ${disk}`
+    } catch {}
+  }))
+}
+
+function fmtBytes(b: number): string {
+  if (!b) return '?'
+  if (b < 1073741824) return (b / 1048576).toFixed(0) + 'MB'
+  if (b < 1099511627776) return (b / 1073741824).toFixed(0) + 'G'
+  return (b / 1099511627776).toFixed(1) + 'T'
 }
 
 function showDialog() {
@@ -490,6 +520,7 @@ onBeforeUnmount(() => {
 .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dg-text-dim); }
 .text-muted { color: var(--dg-text-faint); font-size: 12px; }
 .geo-cell { display: flex; align-items: center; gap: 5px; font-size: 12px; .flag { font-size: 14px; } }
+.hw-cell { .hw-item { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--dg-text-dim); white-space: nowrap; } }
 .action-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border: 1px solid var(--dg-border); border-radius: 7px; background: var(--dg-bg-2); color: var(--dg-text-dim); font-size: 11px; cursor: pointer; transition: all 0.15s; font-family: inherit; margin-right: 3px;
   &:hover { border-color: var(--accent); color: var(--accent); }
   &.action-danger:hover { border-color: var(--dg-danger); color: var(--dg-danger); }

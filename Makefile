@@ -3,6 +3,13 @@
 GOCMD=go
 GOFLAGS=-trimpath
 LDFLAGS=-s -w
+
+# Version info
+DG_VERSION := $(shell date +'%Y.%-m.%-d')_$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+DG_BUILD_DATE := $(shell date +'%Y-%m-%dT%H:%M:%S')
+DG_GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+VERSION_LDFLAGS := -X github.com/michael/device_grid/internal/version.Version=$(DG_VERSION) -X github.com/michael/device_grid/internal/version.BuildDate=$(DG_BUILD_DATE) -X github.com/michael/device_grid/internal/version.GitCommit=$(DG_GIT_COMMIT)
+
 SERVER_BIN=bin/devicegrid-server
 AGENT_BIN=bin/devicegrid-agent
 WEB_DIR=web
@@ -14,10 +21,10 @@ WEB_DIR=web
 build: build-server build-agent
 
 build-server:
-	$(GOCMD) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(SERVER_BIN) ./cmd/server
+	$(GOCMD) build $(GOFLAGS) -ldflags "$(LDFLAGS) $(VERSION_LDFLAGS)" -o $(SERVER_BIN) ./cmd/server
 
 build-agent:
-	$(GOCMD) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(AGENT_BIN) ./cmd/agent
+	$(GOCMD) build $(GOFLAGS) -ldflags "$(LDFLAGS) $(VERSION_LDFLAGS)" -o $(AGENT_BIN) ./cmd/agent
 
 # Cross-compile agent for remote deployment
 build-agent-all:

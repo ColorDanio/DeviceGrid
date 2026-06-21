@@ -16,6 +16,7 @@ import (
 	"github.com/michael/device_grid/internal/ssh"
 	"github.com/michael/device_grid/internal/store/repo"
 	"github.com/michael/device_grid/internal/transport"
+	"github.com/michael/device_grid/internal/version"
 	"github.com/michael/device_grid/internal/ws"
 )
 
@@ -100,6 +101,14 @@ func (r *Router) Setup(mode string) *gin.Engine {
 
 	engine.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	engine.GET("/api/version", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"version":    version.Version,
+			"build_date": version.BuildDate,
+			"git_commit": version.GitCommit,
+		})
 	})
 
 	api := engine.Group("/api")

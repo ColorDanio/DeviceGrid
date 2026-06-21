@@ -51,6 +51,12 @@
       <main class="app-content">
         <router-view v-slot="{ Component }"><transition name="fade-slide" mode="out-in"><component :is="Component" /></transition></router-view>
       </main>
+      <footer class="app-footer">
+        <span class="footer-copy">© 2024-2026 DeviceGrid</span>
+        <span class="footer-sep">·</span>
+        <span class="footer-ver" v-if="appVersion">v{{ appVersion }}</span>
+        <a href="https://github.com/ColorDanio/DeviceGrid" target="_blank" class="footer-link">GitHub</a>
+      </footer>
     </div>
   </div>
 </template>
@@ -62,6 +68,15 @@ import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { listNodes, type Node } from '@/api/nodes'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
+import client from '@/api/client'
+
+const appVersion = ref('')
+async function loadVersion() {
+  try {
+    const { data } = await client.get('/version')
+    appVersion.value = data.version || 'dev'
+  } catch {}
+}
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -102,7 +117,7 @@ function handleCommand(cmd: string) {
 }
 
 let pt: ReturnType<typeof setInterval> | null = null
-onMounted(() => { (async () => { try { nodes.value = await listNodes() } catch {} })(); pt = setInterval(async () => { try { nodes.value = await listNodes() } catch {} }, 15000) })
+onMounted(() => { loadVersion(); (async () => { try { nodes.value = await listNodes() } catch {} })(); pt = setInterval(async () => { try { nodes.value = await listNodes() } catch {} }, 15000) })
 onBeforeUnmount(() => { if (pt) clearInterval(pt) })
 </script>
 
@@ -177,6 +192,17 @@ onBeforeUnmount(() => { if (pt) clearInterval(pt) })
   }
 }
 .app-content { flex: 1; overflow-y: auto; }
+
+.app-footer {
+  height: 28px;
+  background: var(--dg-bg-2);
+  border-top: 1px solid var(--dg-border);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 11px; color: var(--dg-text-faint); flex-shrink: 0;
+  .footer-sep { opacity: 0.4; }
+  .footer-ver { font-family: 'JetBrains Mono', monospace; }
+  .footer-link { color: var(--dg-text-faint); text-decoration: none; &:hover { color: var(--accent); } }
+}
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
