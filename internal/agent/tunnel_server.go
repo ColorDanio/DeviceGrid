@@ -137,6 +137,13 @@ func RegisterPendingCmd(reqID string) chan *agentpb.CommandResponse {
 	pendingCmdsMu.Lock()
 	pendingCmds[reqID] = ch
 	pendingCmdsMu.Unlock()
+	// Auto-cleanup after timeout to prevent memory leak
+	go func() {
+		time.Sleep(5 * time.Minute)
+		pendingCmdsMu.Lock()
+		delete(pendingCmds, reqID)
+		pendingCmdsMu.Unlock()
+	}()
 	return ch
 }
 
@@ -157,6 +164,13 @@ func RegisterPtyOutput(sessionID string) chan *agentpb.PtyOutput {
 	ptyOutputsMu.Lock()
 	ptyOutputs[sessionID] = ch
 	ptyOutputsMu.Unlock()
+	// Auto-cleanup after 1 hour to prevent memory leak
+	go func() {
+		time.Sleep(1 * time.Hour)
+		ptyOutputsMu.Lock()
+		delete(ptyOutputs, sessionID)
+		ptyOutputsMu.Unlock()
+	}()
 	return ch
 }
 
@@ -177,6 +191,7 @@ func RegisterPendingFileList(reqID string) chan *agentpb.FileListResponse {
 	pendingFilesMu.Lock()
 	pendingFiles[reqID] = ch
 	pendingFilesMu.Unlock()
+	go func() { time.Sleep(60 * time.Second); pendingFilesMu.Lock(); delete(pendingFiles, reqID); pendingFilesMu.Unlock() }()
 	return ch
 }
 
@@ -197,6 +212,7 @@ func RegisterPendingFileData(reqID string) chan *agentpb.FileData {
 	pendingFileDataMu.Lock()
 	pendingFileData[reqID] = ch
 	pendingFileDataMu.Unlock()
+	go func() { time.Sleep(5 * time.Minute); pendingFileDataMu.Lock(); delete(pendingFileData, reqID); pendingFileDataMu.Unlock() }()
 	return ch
 }
 

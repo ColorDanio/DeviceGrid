@@ -137,6 +137,16 @@ func (m *Manager) Close() {
 	}
 }
 
+// RemovePool cleans up SSH connections for a deleted node
+func (m *Manager) RemovePool(nodeID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if pool, ok := m.pools[nodeID]; ok {
+		pool.closeAll()
+		delete(m.pools, nodeID)
+	}
+}
+
 type nodePool struct {
 	nodeID  string
 	max     int

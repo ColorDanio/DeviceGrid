@@ -63,7 +63,12 @@ func (t *Transport) getClient(ctx context.Context, nodeID string) (agentpb.Agent
 	}
 
 	client := agentpb.NewAgentServiceClient(conn)
+
+	// Clean up old connection if exists (replace)
 	t.mu.Lock()
+	if old, ok := t.conns[nodeID]; ok {
+		old.conn.Close()
+	}
 	t.conns[nodeID] = &grpcClientConn{conn: conn, client: client}
 	t.mu.Unlock()
 
@@ -255,5 +260,16 @@ func (t *Transport) Close() error {
 	for _, conn := range t.conns {
 		conn.conn.Close()
 	}
+	t.conns = make(map[string]*grpcClientConn)
 	return nil
+}
+
+// RemoveConn cleans up a single node's connection (call on node delete)
+func (t *Transport) RemoveConn(nodeID string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if conn, ok := t.conns[nodeID]; ok {
+		conn.conn.Close()
+		delete(t.conns, nodeID)
+	}
 }

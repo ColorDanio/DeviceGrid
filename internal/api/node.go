@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -280,9 +281,41 @@ func (h *NodeHandler) Trust(c *gin.Context) {
 }
 
 func (h *NodeHandler) DeployAgent(c *gin.Context) {
-	c.JSON(http.StatusOK, APIResponse{
-		Code:    0,
-		Message: "agent deployment will be implemented with gRPC module",
+	nodeID := c.Param("id")
+	node, err := h.repos.Nodes().GetByID(c.Request.Context(), nodeID)
+	if err != nil {
+		NotFound(c, "node not found")
+		return
+	}
+
+	if node.Status != model.NodeStatusOnline && node.AuthMode != "key" {
+		BadRequest(c, "节点需要先完成授信才能部署 Agent")
+		return
+	}
+
+	// Deploy agent binary via SSH
+	// Step 1: Determine architecture
+	result, err := h.transport.Exec(c.Request.Context(), nodeID, "uname -m")
+	if err != nil {
+		Error(c, http.StatusBadGateway, "检测架构失败: "+err.Error())
+		return
+	}
+	arch := strings.TrimSpace(result.Stdout)
+	agentArch := "amd64"
+	if strings.Contains(arch, "aarch64") || strings.Contains(arch, "arm64") {
+		agentArch = "arm64"
+	}
+
+	// Step 2: Upload agent binary (from local dist or bin)
+	// In production, this would be the pre-built agent binary
+	// For now, return instructions
+	OK(c, gin.H{
+		"node_id": nodeID,
+		"name":    node.Name,
+		"arch":    agentArch,
+		"status":  "ready",
+		"command": fmt.Sprintf("./devicegrid-agent-%s -server <server-ip>:9090 -node-id %s -node-name %s", agentArch, node.ID, node.Name),
+		"message": fmt.Sprintf("Agent 部署准备完成（架构: %s）。请将 agent 二进制上传到节点并执行上述命令。", arch),
 	})
 }
 
