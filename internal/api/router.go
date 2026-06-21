@@ -170,6 +170,7 @@ func (r *Router) registerWSRoutes(engine *gin.Engine) {
 		r.handleTerminalWS(conn, nodeID)
 	})
 
+	// Container exec (terminal) WebSocket
 	engine.GET("/ws/container/:nodeID/:containerID", func(c *gin.Context) {
 		token := c.Query("token")
 		if token == "" {
@@ -180,7 +181,6 @@ func (r *Router) registerWSRoutes(engine *gin.Engine) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
-
 		nodeID := c.Param("nodeID")
 		containerID := c.Param("containerID")
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -188,6 +188,26 @@ func (r *Router) registerWSRoutes(engine *gin.Engine) {
 			return
 		}
 		r.handleContainerTerminalWS(conn, nodeID, containerID)
+	})
+
+	// Container log WebSocket
+	engine.GET("/ws/logs/:nodeID/:containerID", func(c *gin.Context) {
+		token := c.Query("token")
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
+			return
+		}
+		if _, err := r.jm.Parse(token); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
+		nodeID := c.Param("nodeID")
+		containerID := c.Param("containerID")
+		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			return
+		}
+		r.handleContainerLogWS(conn, nodeID, containerID)
 	})
 }
 
@@ -278,6 +298,8 @@ func (r *Router) registerDockerRoutes(rg *gin.RouterGroup) {
 		docker.DELETE("/images/:iid", h.RemoveImage)
 		docker.POST("/compose", h.ComposeUp)
 		docker.DELETE("/compose", h.ComposeDown)
+		docker.GET("/containers/:cid/stats", h.ContainerStats)
+		docker.POST("/batch-action", h.BatchContainerAction)
 		docker.GET("/networks", h.ListNetworks)
 		docker.GET("/volumes", h.ListVolumes)
 	}

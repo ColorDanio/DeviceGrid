@@ -68,3 +68,15 @@ export async function listVolumes(nodeId: string): Promise<VolumeInfo[]> {
   const { data } = await client.get(`/nodes/${nodeId}/docker/volumes`)
   return data.data || []
 }
+
+// Container stats
+export async function getContainerStats(nodeId: string, containerId: string): Promise<Record<string, string>> {
+  const { data } = await client.get(`/nodes/${nodeId}/docker/containers/${containerId}/stats`)
+  return data.data || {}
+}
+
+// Batch container action
+export async function batchContainerAction(actions: Array<{node_id: string; container_id: string; action: string}>): Promise<any> {
+  const { data } = await client.post('/nodes/batch/docker-action', { actions })
+  return data.data
+}
