@@ -154,8 +154,13 @@ func main() {
 		}
 	}()
 
+	// Cron scheduler
+	cronSched := node.NewCronScheduler(repos, transportMgr)
+	cronSched.Start()
+	defer cronSched.Stop()
+
 	jm := auth.NewJWTManager(cfg.Auth.JWTSectet, cfg.Auth.JWTExpire)
-	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, alertMgr)
+	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, alertMgr, cronSched)
 	engine := router.Setup(cfg.Server.Mode)
 
 	web.RegisterStaticFiles(engine, cfg.IsDebug())

@@ -38,6 +38,7 @@ type Router struct {
 	network      config.NetworkConfig
 	corsOrigins  []string
 	alertMgr     *node.AlertManager
+	cronSched    *node.CronScheduler
 }
 
 func NewRouter(
@@ -50,6 +51,7 @@ func NewRouter(
 	metricsCache *node.MetricsCache,
 	network config.NetworkConfig,
 	alertMgr *node.AlertManager,
+	cronSched *node.CronScheduler,
 ) *Router {
 	return &Router{
 		repos:        repos,
@@ -61,6 +63,7 @@ func NewRouter(
 		metricsCache: metricsCache,
 		network:      network,
 		alertMgr:     alertMgr,
+		cronSched:    cronSched,
 	}
 }
 
@@ -128,6 +131,7 @@ func (r *Router) Setup(mode string) *gin.Engine {
 			r.registerRKE2Routes(protected)
 			r.registerUserRoutes(protected)
 			r.registerAlertRoutes(protected)
+			r.registerCronRoutes(protected)
 		}
 	}
 
@@ -366,6 +370,17 @@ func (r *Router) registerAlertRoutes(rg *gin.RouterGroup) {
 		alerts.POST("/rules", ah.CreateRule)
 		alerts.DELETE("/rules/:rid", ah.DeleteRule)
 		alerts.POST("/test", ah.TestWebhook)
+	}
+}
+
+func (r *Router) registerCronRoutes(rg *gin.RouterGroup) {
+	ch := NewCronHandler(r.cronSched)
+	cron := rg.Group("/cron")
+	{
+		cron.GET("", ch.List)
+		cron.POST("", ch.Create)
+		cron.DELETE("/:tid", ch.Delete)
+		cron.POST("/:tid/toggle", ch.Toggle)
 	}
 }
 
