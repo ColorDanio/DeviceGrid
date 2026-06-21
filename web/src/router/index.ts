@@ -67,6 +67,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/Settings.vue'),
         meta: { title: '系统设置', icon: 'Setting' },
       },
+      {
+        path: 'automation',
+        name: 'Automation',
+        component: () => import('@/views/Automation.vue'),
+        meta: { title: '自动化', icon: 'AlarmClock' },
+      },
     ],
   },
   {
