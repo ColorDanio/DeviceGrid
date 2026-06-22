@@ -44,17 +44,29 @@ function writeConfig() {
   const dataDir = getDataDir()
   const configPath = path.join(configDir, 'config.yaml')
 
+  // Generate stable secrets per installation (stored in config dir)
+  const secretsFile = path.join(configDir, '.secrets')
+  let secrets = { jwt: '', masterKey: '' }
+  if (fs.existsSync(secretsFile)) {
+    try { secrets = JSON.parse(fs.readFileSync(secretsFile, 'utf8')) } catch {}
+  }
+  if (!secrets.jwt) {
+    secrets.jwt = require('crypto').randomBytes(32).toString('hex')
+    secrets.masterKey = require('crypto').randomBytes(32).toString('hex')
+    fs.writeFileSync(secretsFile, JSON.stringify(secrets), { mode: 0o600 })
+  }
+
   const config = `server:
   host: "127.0.0.1"
   port: ${serverPort}
-  mode: "release"
+  mode: "debug"
 
 auth:
-  jwt_secret: "devicegrid-electron-${Date.now()}"
+  jwt_secret: "${secrets.jwt}"
   jwt_expire: "168h"
 
 crypto:
-  master_key: ""
+  master_key: "${secrets.masterKey}"
 
 database:
   driver: "sqlite"
@@ -76,6 +88,9 @@ ssh:
 deploy:
   max_concurrent: 20
   timeout: "30m"
+
+network:
+  environment: "public"
 `
   fs.writeFileSync(configPath, config)
   return configPath
