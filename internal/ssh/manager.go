@@ -54,12 +54,22 @@ func (m *Manager) getClientForNode(node *model.Node) (*ssh.Client, error) {
 	}
 	m.mu.Unlock()
 
-	// Try to get an existing idle connection
+	// Try to get an existing idle connection first (fast path)
 	if client := pool.get(); client != nil {
 		return client, nil
 	}
 
-	// No idle connection — dial a new one
+	// No idle connection — acquire dial lock to prevent thundering herd
+	// Multiple goroutines requesting the same node will wait for one dial
+	pool.dialMu.Lock()
+	defer pool.dialMu.Unlock()
+
+	// Double-check after acquiring lock — someone else may have just dialed
+	if client := pool.get(); client != nil {
+		return client, nil
+	}
+
+	// Dial a new connection
 	client, err := m.dial(node)
 	if err != nil {
 		return nil, err
@@ -160,6 +170,7 @@ type nodePool struct {
 	max     int
 	mu      sync.Mutex
 	clients []*ssh.Client
+	dialMu  sync.Mutex // Prevents thundering herd of concurrent dials
 }
 
 func newNodePool(nodeID string, max int) *nodePool {
@@ -194,22 +205,6 @@ func (p *nodePool) closeAll() {
 		c.Close()
 	}
 	p.clients = nil
-}
-
-func keepAlive(ctx context.Context, client *ssh.Client, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			_, _, err := client.SendRequest("keepalive@golang.org", true, nil)
-			if err != nil {
-				return
-			}
-		}
-	}
 }
 
 func dialWithPassword(host string, port int, username, password string, timeout time.Duration) (*ssh.Client, error) {

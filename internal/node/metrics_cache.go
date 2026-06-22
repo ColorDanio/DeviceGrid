@@ -72,6 +72,8 @@ func (mc *MetricsCache) fetchAll(ctx context.Context) {
 		return
 	}
 
+	// Use semaphore to limit concurrency (max 3 parallel SSH connections)
+	sem := make(chan struct{}, 3)
 	var wg sync.WaitGroup
 	for _, node := range nodes {
 		if node.Status != model.NodeStatusOnline {
@@ -81,6 +83,8 @@ func (mc *MetricsCache) fetchAll(ctx context.Context) {
 		wg.Add(1)
 		go func(n *model.Node) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 			mc.fetchOne(ctx, n.ID)
 		}(node)
 	}
