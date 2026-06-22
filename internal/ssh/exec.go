@@ -19,37 +19,61 @@ type ExecResult struct {
 }
 
 func (m *Manager) Exec(ctx context.Context, nodeID string, cmd string) (ExecResult, error) {
-	client, err := m.getClient(ctx, nodeID)
+	result, err := m.execWithRetry(ctx, nodeID, cmd, 2)
 	if err != nil {
 		return ExecResult{}, err
 	}
-	defer m.releaseClient(nodeID, client)
+	return result, nil
+}
 
-	session, err := client.NewSession()
-	if err != nil {
-		return ExecResult{}, fmt.Errorf("new session: %w", err)
-	}
-	defer session.Close()
-
-	var stdout, stderr bytes.Buffer
-	session.Stdout = &stdout
-	session.Stderr = &stderr
-
-	err = session.Run(cmd)
-	exitCode := 0
-	if err != nil {
-		if exitErr, ok := err.(*ssh.ExitError); ok {
-			exitCode = exitErr.ExitStatus()
-		} else {
-			return ExecResult{}, fmt.Errorf("exec: %w", err)
+// execWithRetry tries to exec, and on connection failure, discards the
+// stale connection and retries with a fresh one
+func (m *Manager) execWithRetry(ctx context.Context, nodeID string, cmd string, maxRetries int) (ExecResult, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		client, err := m.getClient(ctx, nodeID)
+		if err != nil {
+			lastErr = err
+			continue
 		}
-	}
 
-	return ExecResult{
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-		ExitCode: exitCode,
-	}, nil
+		session, err := client.NewSession()
+		if err != nil {
+			// Stale connection — close it and retry
+			client.Close()
+			lastErr = fmt.Errorf("new session (stale?): %w", err)
+			continue
+		}
+
+		var stdout, stderr bytes.Buffer
+		session.Stdout = &stdout
+		session.Stderr = &stderr
+
+		err = session.Run(cmd)
+		session.Close()
+
+		// Return client to pool regardless (it might still be usable for other sessions)
+		m.releaseClient(nodeID, client)
+
+		exitCode := 0
+		if err != nil {
+			if exitErr, ok := err.(*ssh.ExitError); ok {
+				exitCode = exitErr.ExitStatus()
+			} else {
+				// Connection-level error — don't return to pool
+				lastErr = fmt.Errorf("exec: %w", err)
+				client.Close()
+				continue
+			}
+		}
+
+		return ExecResult{
+			Stdout:   stdout.String(),
+			Stderr:   stderr.String(),
+			ExitCode: exitCode,
+		}, nil
+	}
+	return ExecResult{}, lastErr
 }
 
 type StreamChunk struct {

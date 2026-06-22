@@ -174,18 +174,48 @@ type nodePool struct {
 }
 
 func newNodePool(nodeID string, max int) *nodePool {
-	return &nodePool{nodeID: nodeID, max: max}
+	pool := &nodePool{nodeID: nodeID, max: max}
+	// Start keepalive goroutine for this pool
+	go pool.keepalive()
+	return pool
+}
+
+func (p *nodePool) keepalive() {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		p.mu.Lock()
+		var alive []*ssh.Client
+		for _, c := range p.clients {
+			_, _, err := c.SendRequest("keepalive@golang.org", true, nil)
+			if err != nil {
+				c.Close()
+			} else {
+				alive = append(alive, c)
+			}
+		}
+		p.clients = alive
+		p.mu.Unlock()
+	}
 }
 
 func (p *nodePool) get() *ssh.Client {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(p.clients) == 0 {
-		return nil
+	// Try connections from the end, discard dead ones
+	for len(p.clients) > 0 {
+		client := p.clients[len(p.clients)-1]
+		p.clients = p.clients[:len(p.clients)-1]
+		// Quick health check — send a global request
+		_, _, err := client.SendRequest("keepalive@golang.org", true, nil)
+		if err != nil {
+			// Dead connection — discard and try next
+			client.Close()
+			continue
+		}
+		return client
 	}
-	client := p.clients[len(p.clients)-1]
-	p.clients = p.clients[:len(p.clients)-1]
-	return client
+	return nil
 }
 
 func (p *nodePool) put(client *ssh.Client) {
