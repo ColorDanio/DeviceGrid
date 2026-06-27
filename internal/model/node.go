@@ -47,6 +47,8 @@ type Node struct {
 	CountryCode   string      `json:"country_code,omitempty" bson:"country_code,omitempty"`
 	Region        string      `json:"region,omitempty" bson:"region,omitempty"`
 	ISP           string      `json:"isp,omitempty" bson:"isp,omitempty"`
+	HostKey       string      `json:"-" bson:"host_key"`
+	ForcePasswordChange bool  `json:"force_password_change,omitempty" bson:"force_password_change,omitempty"`
 	LastSeenAt    time.Time   `json:"last_seen_at" bson:"last_seen_at"`
 	CreatedAt     time.Time   `json:"created_at" bson:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at" bson:"updated_at"`

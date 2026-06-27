@@ -70,10 +70,10 @@ func main() {
 	}
 
 	// Auto-generate JWT secret in debug mode (use crypto/rand, not timestamp)
-	if cfg.Auth.JWTSectet == "" && cfg.IsDebug() {
+	if cfg.Auth.JWTSecret == "" && cfg.IsDebug() {
 		jwtBytes := make([]byte, 32)
 		rand.Read(jwtBytes)
-		cfg.Auth.JWTSectet = fmt.Sprintf("%x", jwtBytes)
+		cfg.Auth.JWTSecret = fmt.Sprintf("%x", jwtBytes)
 		slog.Warn("auth.jwt_secret not set, auto-generated for debug mode. Set DG_AUTH_JWT_SECRET for production")
 	}
 
@@ -165,7 +165,7 @@ func main() {
 	cronSched.Start()
 	defer cronSched.Stop()
 
-	jm := auth.NewJWTManager(cfg.Auth.JWTSectet, cfg.Auth.JWTExpire)
+	jm := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpire)
 	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, alertMgr, cronSched)
 	engine := router.Setup(cfg.Server.Mode)
 

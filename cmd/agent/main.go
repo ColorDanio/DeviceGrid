@@ -41,6 +41,8 @@ func main() {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
+	handleSignal()
+
 	for {
 		err := connectAndRun(*serverAddr, *nodeID, *nodeName, *interval, *caCertPath, *insecure)
 		if err != nil {
@@ -534,8 +536,8 @@ func maxInt(a, b int) int {
 	return b
 }
 
-// Ensure we don't exit on signal — keep trying to reconnect
-func init() {
+// handleSignal sets up graceful shutdown — called from main(), not init()
+func handleSignal() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	go func() {

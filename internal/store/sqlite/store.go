@@ -87,6 +87,8 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE nodes ADD COLUMN country_code TEXT DEFAULT ''`,
 		`ALTER TABLE nodes ADD COLUMN region TEXT DEFAULT ''`,
 		`ALTER TABLE nodes ADD COLUMN isp TEXT DEFAULT ''`,
+		`ALTER TABLE nodes ADD COLUMN host_key TEXT DEFAULT ''`,
+		`ALTER TABLE nodes ADD COLUMN force_password_change INTEGER DEFAULT 0`,
 	}
 	for _, m := range migrations {
 		db.ExecContext(ctx, m) // Ignore "duplicate column" errors

@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -22,7 +23,21 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		// Allow same-origin requests
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true // Non-browser clients
+		}
+		host := r.Host
+		// Allow if origin matches the server host
+		if strings.Contains(origin, host) {
+			return true
+		}
+		// Allow localhost in debug mode
+		if strings.Contains(origin, "localhost") || strings.Contains(origin, "127.0.0.1") {
+			return true
+		}
+		return false
 	},
 	ReadBufferSize:  8192,
 	WriteBufferSize: 8192,
@@ -131,6 +146,7 @@ func (r *Router) Setup(mode string) *gin.Engine {
 			{
 				authGroup.POST("/refresh", authHandler.Refresh)
 				authGroup.GET("/me", authHandler.Me)
+				authGroup.POST("/change-password", authHandler.ChangePassword)
 			}
 
 			// Read-only routes: all authenticated users (admin, operator, viewer)

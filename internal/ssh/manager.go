@@ -3,7 +3,9 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,10 +98,12 @@ func (m *Manager) dial(node *model.Node) (*ssh.Client, error) {
 		return nil, err
 	}
 
+	hostKeyCallback := m.getHostKeyCallback(node)
+
 	config := &ssh.ClientConfig{
 		User:            node.Username,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: hostKeyCallback,
 		Timeout:         m.config.ConnectTimeout,
 	}
 
@@ -109,6 +113,42 @@ func (m *Manager) dial(node *model.Node) (*ssh.Client, error) {
 		return nil, fmt.Errorf("ssh dial %s: %w", addr, err)
 	}
 	return client, nil
+}
+
+// getHostKeyCallback implements TOFU (Trust On First Use):
+// - If node has no stored host key: accept and store it (first connection)
+// - If node has a stored host key: verify it matches
+func (m *Manager) getHostKeyCallback(node *model.Node) ssh.HostKeyCallback {
+	if node.HostKey == "" {
+		// First connection — accept any key and store it
+		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			storedKey := string(ssh.MarshalAuthorizedKey(key))
+			storedKey = strings.TrimSpace(storedKey)
+			// Persist to database
+			ctx := context.Background()
+			node.HostKey = storedKey
+			_ = m.repos.Nodes().Update(ctx, node)
+			slog.Info("ssh host key stored (TOFU)", "node", node.Name, "key_type", key.Type())
+			return nil
+		}
+	}
+
+	// Parse stored host key
+	storedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(node.HostKey))
+	if err != nil {
+		// Corrupted stored key — fall back to TOFU
+		slog.Warn("ssh host key parse failed, re-trusting", "node", node.Name, "error", err)
+		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			storedKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key)))
+			ctx := context.Background()
+			node.HostKey = storedKey
+			_ = m.repos.Nodes().Update(ctx, node)
+			return nil
+		}
+	}
+
+	// Verify against stored key
+	return ssh.FixedHostKey(storedKey)
 }
 
 func (m *Manager) getAuthMethods(node *model.Node) ([]ssh.AuthMethod, error) {
@@ -239,7 +279,7 @@ func (p *nodePool) closeAll() {
 
 func dialWithPassword(host string, port int, username, password string, timeout time.Duration) (*ssh.Client, error) {
 	config := &ssh.ClientConfig{
-		User: username,
+		User:            username,
 		Auth: []ssh.AuthMethod{
 			ssh.Password(password),
 			ssh.KeyboardInteractive(func(name, instruction string, questions []string, echos []bool) ([]string, error) {
@@ -250,7 +290,9 @@ func dialWithPassword(host string, port int, username, password string, timeout 
 				return answers, nil
 			}),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: ssh.HostKeyCallback(func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			return nil // Trust establishment — key will be stored by the trust flow
+		}),
 		Timeout:         timeout,
 	}
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))

@@ -28,7 +28,7 @@ type ServerConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSectet string        `mapstructure:"jwt_secret"`
+	JWTSecret string        `mapstructure:"jwt_secret"`
 	JWTExpire time.Duration `mapstructure:"jwt_expire"`
 }
 
@@ -135,8 +135,8 @@ func Load(path string) (*Config, error) {
 		cfg.Crypto.MasterKey = os.Getenv("DG_CRYPTO_MASTER_KEY")
 	}
 
-	if cfg.Auth.JWTSectet == "" {
-		cfg.Auth.JWTSectet = os.Getenv("DG_AUTH_JWT_SECRET")
+	if cfg.Auth.JWTSecret == "" {
+		cfg.Auth.JWTSecret = os.Getenv("DG_AUTH_JWT_SECRET")
 	}
 
 	return &cfg, nil
@@ -179,7 +179,7 @@ func (c *Config) validate() error {
 	}
 	// In release mode, require explicit secrets
 	if c.Server.Mode == "release" {
-		if c.Auth.JWTSectet == "" {
+		if c.Auth.JWTSecret == "" {
 			return fmt.Errorf("auth.jwt_secret must be set in release mode (use DG_AUTH_JWT_SECRET env var)")
 		}
 		if c.Crypto.MasterKey == "" {

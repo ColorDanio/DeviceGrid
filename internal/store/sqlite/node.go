@@ -23,11 +23,12 @@ func (r *NodeRepository) Create(ctx context.Context, n *model.Node) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO nodes (id, name, host, port, username, auth_mode, password_enc, private_key_enc,
 			transport_mode, agent_port, status, tags, os, arch, docker_version, rke2_role, cluster_id,
-			country, country_code, region, isp, last_seen_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			country, country_code, region, isp, host_key, force_password_change, last_seen_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		n.ID, n.Name, n.Host, n.Port, n.Username, n.AuthMode, n.PasswordEnc, n.PrivateKeyEnc,
 		n.TransportMode, n.AgentPort, n.Status, string(tags), n.OS, n.Arch, n.DockerVersion,
-		n.RKE2Role, n.ClusterID, n.Country, n.CountryCode, n.Region, n.ISP, n.LastSeenAt, n.CreatedAt, n.UpdatedAt,
+		n.RKE2Role, n.ClusterID, n.Country, n.CountryCode, n.Region, n.ISP, n.HostKey,
+		n.ForcePasswordChange, n.LastSeenAt, n.CreatedAt, n.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("create node: %w", err)
@@ -42,11 +43,11 @@ func (r *NodeRepository) GetByID(ctx context.Context, id string) (*model.Node, e
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, name, host, port, username, auth_mode, password_enc, private_key_enc,
 			transport_mode, agent_port, status, tags, os, arch, docker_version, rke2_role,
-			cluster_id, country, country_code, region, isp, last_seen_at, created_at, updated_at
+			cluster_id, country, country_code, region, isp, host_key, force_password_change, last_seen_at, created_at, updated_at
 		FROM nodes WHERE id = ?`, id).Scan(
 		&n.ID, &n.Name, &n.Host, &n.Port, &n.Username, &n.AuthMode, &n.PasswordEnc, &n.PrivateKeyEnc,
 		&n.TransportMode, &n.AgentPort, &n.Status, &tagsJSON, &n.OS, &n.Arch, &n.DockerVersion,
-		&n.RKE2Role, &n.ClusterID, &n.Country, &n.CountryCode, &n.Region, &n.ISP, &lastSeen, &n.CreatedAt, &n.UpdatedAt,
+		&n.RKE2Role, &n.ClusterID, &n.Country, &n.CountryCode, &n.Region, &n.ISP, &n.HostKey, &n.ForcePasswordChange, &lastSeen, &n.CreatedAt, &n.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get node %s: %w", id, err)
@@ -61,7 +62,7 @@ func (r *NodeRepository) GetByID(ctx context.Context, id string) (*model.Node, e
 func (r *NodeRepository) List(ctx context.Context, filter model.NodeFilter) ([]*model.Node, error) {
 	query := `SELECT id, name, host, port, username, auth_mode, password_enc, private_key_enc,
 		transport_mode, agent_port, status, tags, os, arch, docker_version, rke2_role,
-		cluster_id, country, country_code, region, isp, last_seen_at, created_at, updated_at FROM nodes WHERE 1=1`
+		cluster_id, country, country_code, region, isp, host_key, force_password_change, last_seen_at, created_at, updated_at FROM nodes WHERE 1=1`
 	args := []interface{}{}
 
 	if filter.Status != "" {
@@ -94,12 +95,12 @@ func (r *NodeRepository) Update(ctx context.Context, n *model.Node) error {
 		UPDATE nodes SET name=?, host=?, port=?, username=?, auth_mode=?, password_enc=?,
 			private_key_enc=?, transport_mode=?, agent_port=?, status=?, tags=?, os=?, arch=?,
 			docker_version=?, rke2_role=?, cluster_id=?, country=?, country_code=?, region=?, isp=?,
-			last_seen_at=?, updated_at=?
+			host_key=?, force_password_change=?, last_seen_at=?, updated_at=?
 		WHERE id=?`,
 		n.Name, n.Host, n.Port, n.Username, n.AuthMode, n.PasswordEnc, n.PrivateKeyEnc,
 		n.TransportMode, n.AgentPort, n.Status, string(tags), n.OS, n.Arch,
 		n.DockerVersion, n.RKE2Role, n.ClusterID, n.Country, n.CountryCode, n.Region, n.ISP,
-		n.LastSeenAt, n.UpdatedAt, n.ID,
+		n.HostKey, n.ForcePasswordChange, n.LastSeenAt, n.UpdatedAt, n.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update node: %w", err)
@@ -134,7 +135,7 @@ func scanNodes(rows *sql.Rows) ([]*model.Node, error) {
 		if err := rows.Scan(
 			&n.ID, &n.Name, &n.Host, &n.Port, &n.Username, &n.AuthMode, &n.PasswordEnc, &n.PrivateKeyEnc,
 			&n.TransportMode, &n.AgentPort, &n.Status, &tagsJSON, &n.OS, &n.Arch, &n.DockerVersion,
-			&n.RKE2Role, &n.ClusterID, &n.Country, &n.CountryCode, &n.Region, &n.ISP, &lastSeen, &n.CreatedAt, &n.UpdatedAt,
+			&n.RKE2Role, &n.ClusterID, &n.Country, &n.CountryCode, &n.Region, &n.ISP, &n.HostKey, &n.ForcePasswordChange, &lastSeen, &n.CreatedAt, &n.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan node: %w", err)
 		}

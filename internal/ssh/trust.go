@@ -75,6 +75,9 @@ func (m *Manager) EstablishTrust(ctx context.Context, nodeID string) error {
 		return fmt.Errorf("encrypt private key: %w", err)
 	}
 
+	// Store the host key from the initial connection (TOFU)
+	// During trust establishment we accept the key, then store it
+
 	node.AuthMode = "key"
 	node.PrivateKeyEnc = privKeyEnc
 	node.Status = model.NodeStatusOnline
@@ -83,7 +86,7 @@ func (m *Manager) EstablishTrust(ctx context.Context, nodeID string) error {
 		return fmt.Errorf("update node: %w", err)
 	}
 
-	// Verify key login works
+	// Verify key login works — use TOFU callback for verification
 	keySigner, err := ssh.ParsePrivateKey([]byte(kp.PrivateKey))
 	if err != nil {
 		return fmt.Errorf("parse key for verification: %w", err)
@@ -91,7 +94,7 @@ func (m *Manager) EstablishTrust(ctx context.Context, nodeID string) error {
 	verifyConfig := &ssh.ClientConfig{
 		User:            node.Username,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(keySigner)},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: m.getHostKeyCallback(node),
 		Timeout:         m.config.ConnectTimeout,
 	}
 	addr := fmt.Sprintf("%s:%d", node.Host, node.Port)
@@ -118,7 +121,7 @@ func (m *Manager) dialWithAllMethods(node *model.Node) (*ssh.Client, error) {
 				config := &ssh.ClientConfig{
 					User:            node.Username,
 					Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-					HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+					HostKeyCallback: m.getHostKeyCallback(node),
 					Timeout:         m.config.ConnectTimeout,
 				}
 				if client, err := ssh.Dial("tcp", addr, config); err == nil {
@@ -148,7 +151,7 @@ func (m *Manager) dialWithAllMethods(node *model.Node) (*ssh.Client, error) {
 		config := &ssh.ClientConfig{
 			User:            node.Username,
 			Auth:            methods,
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			HostKeyCallback: m.getHostKeyCallback(node),
 			Timeout:         m.config.ConnectTimeout,
 		}
 		client, err := ssh.Dial("tcp", addr, config)

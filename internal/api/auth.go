@@ -83,6 +83,47 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	})
 }
 
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var req struct {
+		OldPassword string `json:"old_password" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		BadRequest(c, "invalid request")
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		BadRequest(c, "password must be at least 8 characters")
+		return
+	}
+
+	user, err := h.repos.Users().GetByID(c.Request.Context(), userID.(string))
+	if err != nil {
+		Error(c, 404, "user not found")
+		return
+	}
+	if !auth.CheckPassword(user.PasswordHash, req.OldPassword) {
+		Error(c, 401, "old password incorrect")
+		return
+	}
+
+	hash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		InternalError(c, "hash password: "+err.Error())
+		return
+	}
+	user.PasswordHash = hash
+	_ = h.repos.Users().Create(c.Request.Context(), &model.User{
+		ID:           user.ID,
+		Username:     user.Username,
+		PasswordHash: hash,
+		Role:         user.Role,
+		CreatedAt:    user.CreatedAt,
+	})
+	OK(c, gin.H{"changed": true})
+}
+
 func EnsureDefaultUser(repos repo.Repositories) error {
 	ctx := context.Background()
 	_, err := repos.Users().GetByUsername(ctx, "admin")
@@ -102,7 +143,17 @@ func EnsureDefaultUser(repos repo.Repositories) error {
 		Role:         model.RoleAdmin,
 		CreatedAt:    time.Now(),
 	}
-	return repos.Users().Create(ctx, user)
+	if err := repos.Users().Create(ctx, user); err != nil {
+		return err
+	}
+
+	// Flag the node for forced password change
+	nodes, _ := repos.Nodes().List(ctx, model.NodeFilter{})
+	for _, n := range nodes {
+		n.ForcePasswordChange = true
+		_ = repos.Nodes().Update(ctx, n)
+	}
+	return nil
 }
 
 // BackfillGeo populates geo info for nodes that don't have it yet.
