@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -55,9 +57,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("generate master key: %v", err)
 		}
-		slog.Warn("crypto.master_key not set, auto-generating and persisting to config")
-		persistMasterKey(configPath, masterKey)
-		slog.Info("master key persisted to config file")
+		// Persist to a separate key file (NOT config.yaml) with restricted permissions
+		keyFile := filepath.Join(filepath.Dir(configPath), ".master_key")
+		os.WriteFile(keyFile, []byte(masterKey), 0600)
+		slog.Warn("crypto.master_key not set, generated and saved to "+keyFile+" (chmod 600)")
+		slog.Warn("For production: set DG_CRYPTO_MASTER_KEY env var and remove this file")
 	}
 
 	enc, err := crypto.New(masterKey)
@@ -65,9 +69,11 @@ func main() {
 		log.Fatalf("init crypto: %v", err)
 	}
 
-	// Auto-generate JWT secret in debug mode
+	// Auto-generate JWT secret in debug mode (use crypto/rand, not timestamp)
 	if cfg.Auth.JWTSectet == "" && cfg.IsDebug() {
-		cfg.Auth.JWTSectet = fmt.Sprintf("auto-generated-%d", time.Now().UnixNano())
+		jwtBytes := make([]byte, 32)
+		rand.Read(jwtBytes)
+		cfg.Auth.JWTSectet = fmt.Sprintf("%x", jwtBytes)
 		slog.Warn("auth.jwt_secret not set, auto-generated for debug mode. Set DG_AUTH_JWT_SECRET for production")
 	}
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +16,12 @@ import (
 	"github.com/michael/device_grid/internal/transport"
 	"github.com/michael/device_grid/internal/ws"
 )
+
+var pkgNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._+:~-]*$`)
+
+func isValidPackageName(pkg string) bool {
+	return pkgNameRe.MatchString(pkg)
+}
 
 type Engine struct {
 	repos     repo.Repositories
@@ -175,7 +183,25 @@ func (e *Engine) runOnNode(ctx context.Context, task *model.DeployTask, nodeID s
 	case model.DeployFile:
 		err = fmt.Errorf("file deployment not yet implemented")
 	case model.DeployPackage:
-		script := fmt.Sprintf("OS_TYPE=$(grep '^ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'); if [ \"$OS_TYPE\" = \"ubuntu\" ] || [ \"$OS_TYPE\" = \"debian\" ]; then apt-get install -y %s; elif [ \"$OS_TYPE\" = \"centos\" ] || [ \"$OS_TYPE\" = \"rhel\" ]; then yum install -y %s; fi", task.Payload, task.Payload)
+		// Validate package names to prevent shell injection
+		// Split by whitespace, validate each package name individually
+		packages := strings.Fields(task.Payload)
+		var validatedPkgs []string
+		for _, pkg := range packages {
+			// Only allow alphanumeric, dots, dashes, plus, colons, tildes
+			if !isValidPackageName(pkg) {
+				e.finishResult(ctx, result, model.ResultFailed, 1, "", fmt.Sprintf("invalid package name: %s", pkg))
+				e.broadcastNode(task.ID, nodeID, node.Name, "error", "", fmt.Sprintf("invalid package name: %s", pkg))
+				return false
+			}
+			validatedPkgs = append(validatedPkgs, pkg)
+		}
+		if len(validatedPkgs) == 0 {
+			e.finishResult(ctx, result, model.ResultFailed, 1, "", "no valid package names")
+			return false
+		}
+		pkgList := strings.Join(validatedPkgs, " ")
+		script := fmt.Sprintf("OS_TYPE=$(grep '^ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'); if [ \"$OS_TYPE\" = \"ubuntu\" ] || [ \"$OS_TYPE\" = \"debian\" ]; then apt-get install -y %s; elif [ \"$OS_TYPE\" = \"centos\" ] || [ \"$OS_TYPE\" = \"rhel\" ]; then yum install -y %s; fi", pkgList, pkgList)
 		stream, err = e.transport.ExecStream(ctx, nodeID, script)
 	default:
 		err = fmt.Errorf("unknown task type: %s", task.Type)

@@ -3,11 +3,25 @@ package docker
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/michael/device_grid/internal/model"
 	"github.com/michael/device_grid/internal/transport"
 )
+
+var dockerNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.\-/:@]*$`)
+
+// sanitizeForShell rejects strings with shell metacharacters
+func sanitizeForShell(s string) string {
+	for _, ch := range s {
+		switch ch {
+		case ';', '|', '&', '`', '$', '(', ')', '{', '}', '<', '>', '\n', '\r', '\\', '"', '\'', '!', '#':
+			return ""
+		}
+	}
+	return s
+}
 
 type Manager struct {
 	transport *transport.Manager
@@ -200,6 +214,32 @@ func (m *Manager) ContainerAction(ctx context.Context, nodeID string, containerI
 }
 
 func (m *Manager) CreateContainer(ctx context.Context, nodeID string, req CreateContainerRequest) (string, error) {
+	// Validate inputs to prevent shell injection
+	if !dockerNameRe.MatchString(req.Name) {
+		return "", fmt.Errorf("invalid container name: %s", req.Name)
+	}
+	if !dockerNameRe.MatchString(req.Image) {
+		return "", fmt.Errorf("invalid image name: %s", req.Image)
+	}
+	for _, p := range req.Ports {
+		if sanitizeForShell(p) == "" {
+			return "", fmt.Errorf("invalid port mapping: %s", p)
+		}
+	}
+	for k, v := range req.Env {
+		if sanitizeForShell(k) == "" || sanitizeForShell(v) == "" {
+			return "", fmt.Errorf("invalid env var: %s=%s", k, v)
+		}
+	}
+	for k, v := range req.Labels {
+		if sanitizeForShell(k) == "" || sanitizeForShell(v) == "" {
+			return "", fmt.Errorf("invalid label: %s=%s", k, v)
+		}
+	}
+	if req.RestartPolicy != "" && sanitizeForShell(req.RestartPolicy) == "" {
+		return "", fmt.Errorf("invalid restart policy: %s", req.RestartPolicy)
+	}
+
 	cmd := dockerBin + fmt.Sprintf(`$DPATH run -d --name %s`, req.Name)
 	for _, p := range req.Ports {
 		cmd += fmt.Sprintf(" -p %s", p)
@@ -215,6 +255,11 @@ func (m *Manager) CreateContainer(ctx context.Context, nodeID string, req Create
 	}
 	cmd += fmt.Sprintf(" %s", req.Image)
 	if len(req.Cmd) > 0 {
+		for _, c := range req.Cmd {
+			if sanitizeForShell(c) == "" {
+				return "", fmt.Errorf("invalid command arg: %s", c)
+			}
+		}
 		cmd += " " + strings.Join(req.Cmd, " ")
 	}
 

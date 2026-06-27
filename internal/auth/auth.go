@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -89,7 +90,9 @@ func AuthRequired(jm *JWTManager) gin.HandlerFunc {
 		}
 		claims, err := jm.Parse(parts[1])
 		if err != nil {
-			c.AbortWithStatusJSON(401, gin.H{"error": "invalid token: " + err.Error()})
+			// Log detailed error server-side, return generic message to client
+			slog.Debug("JWT parse error", "error", err)
+			c.AbortWithStatusJSON(401, gin.H{"error": "invalid or expired token"})
 			return
 		}
 		c.Set("user_id", claims.UserID)

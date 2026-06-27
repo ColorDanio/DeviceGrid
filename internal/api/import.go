@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -142,13 +141,15 @@ func (h *ImportHandler) Import(c *gin.Context) {
 		privateKeyEnc := ""
 		privateKeyContent := ""
 		if keyPath != "" {
-			keyBytes, readErr := os.ReadFile(keyPath)
-			if readErr != nil {
+			// SECURITY: Do NOT read local files from user-supplied CSV input
+			// Instead, treat the value as the PEM key content directly
+			if strings.Contains(keyPath, "PRIVATE KEY") {
+				privateKeyContent = keyPath
+			} else {
 				result.Failed++
-				result.Errors = append(result.Errors, fmt.Sprintf("Row %d (%s): cannot read key file %s", i+2, name, keyPath))
+				result.Errors = append(result.Errors, fmt.Sprintf("Row %d (%s): private_key must contain PEM key content, not a file path", i+2, name))
 				continue
 			}
-			privateKeyContent = string(keyBytes)
 		}
 		if privateKeyContent != "" {
 			privateKeyEnc, err = h.enc.EncryptString(privateKeyContent)

@@ -133,23 +133,45 @@ func (r *Router) Setup(mode string) *gin.Engine {
 				authGroup.GET("/me", authHandler.Me)
 			}
 
+			// Read-only routes: all authenticated users (admin, operator, viewer)
+			// Mutation routes: admin + operator only
+			// Admin-only routes: user management, cluster delete
+
 			r.registerNodeRoutes(protected)
 			r.registerSFTPRoutes(protected)
 			r.registerDockerRoutes(protected)
 			r.registerDeployRoutes(protected)
 			r.registerRKE2Routes(protected)
-			r.registerUserRoutes(protected)
 			r.registerAlertRoutes(protected)
 			r.registerCronRoutes(protected)
+
+			// User management: admin only
+			adminOnly := protected.Group("")
+			adminOnly.Use(auth.RoleRequired("admin"))
+			{
+				adminOnly.GET("/users", func(c *gin.Context) {
+					h := NewUserHandler(r.repos, r.jm)
+					h.List(c)
+				})
+				adminOnly.POST("/users", func(c *gin.Context) {
+					h := NewUserHandler(r.repos, r.jm)
+					h.Create(c)
+				})
+				adminOnly.DELETE("/users/:uid", func(c *gin.Context) {
+					h := NewUserHandler(r.repos, r.jm)
+					h.Delete(c)
+				})
+			}
 		}
 	}
 
-	r.registerWSRoutes(engine)
+	r.registerWSRoutes(engine, RateLimit(60, time.Minute))
 
 	return engine
 }
 
-func (r *Router) registerWSRoutes(engine *gin.Engine) {
+func (r *Router) registerWSRoutes(engine *gin.Engine, wsRateLimit gin.HandlerFunc) {
+	engine.Use(wsRateLimit)
 	engine.GET("/ws", func(c *gin.Context) {
 		token := c.Query("token")
 		if token == "" {
@@ -232,19 +254,25 @@ func (r *Router) registerNodeRoutes(rg *gin.RouterGroup) {
 	h := NewNodeHandler(r.repos, r.enc, r.transport, r.sshMgr, r.metricsCache, r.network.EnableGeoLookup)
 	nodes := rg.Group("/nodes")
 	{
+		// Read: all authenticated users
 		nodes.GET("", h.List)
-		nodes.POST("", h.Create)
 		nodes.GET("/:id", h.Get)
-		nodes.PUT("/:id", h.Update)
-		nodes.DELETE("/:id", h.Delete)
-		nodes.POST("/:id/health", h.Health)
-		nodes.POST("/:id/trust", h.Trust)
-		nodes.POST("/:id/deploy-agent", h.DeployAgent)
-		nodes.POST("/:id/facts", h.Facts)
 		nodes.GET("/:id/metrics", h.Metrics)
 		nodes.GET("/:id/processes", h.TopProcesses)
 		nodes.GET("/:id/logins", h.LoginHistory)
-		nodes.POST("/:id/refresh-geo", h.RefreshGeo)
+
+		// Mutations: admin + operator
+		opNodes := nodes.Group("", auth.RoleRequired("admin", "operator"))
+		{
+			opNodes.POST("", h.Create)
+			opNodes.PUT("/:id", h.Update)
+			opNodes.DELETE("/:id", h.Delete)
+			opNodes.POST("/:id/health", h.Health)
+			opNodes.POST("/:id/trust", h.Trust)
+			opNodes.POST("/:id/deploy-agent", h.DeployAgent)
+			opNodes.POST("/:id/facts", h.Facts)
+			opNodes.POST("/:id/refresh-geo", h.RefreshGeo)
+		}
 	}
 
 	// Network checks — conditional based on network config
@@ -304,21 +332,27 @@ func (r *Router) registerDockerRoutes(rg *gin.RouterGroup) {
 	h := NewDockerHandler(r.repos, r.transport, r.hub)
 	docker := rg.Group("/nodes/:id/docker")
 	{
+		// Read: all users
 		docker.GET("/info", h.Info)
-		docker.POST("/install", h.Install)
-		docker.DELETE("", h.Uninstall)
 		docker.GET("/containers", h.ListContainers)
-		docker.POST("/containers", h.CreateContainer)
-		docker.POST("/containers/:cid/action", h.ContainerAction)
 		docker.GET("/images", h.ListImages)
-		docker.POST("/images/pull", h.PullImage)
-		docker.DELETE("/images/:iid", h.RemoveImage)
-		docker.POST("/compose", h.ComposeUp)
-		docker.DELETE("/compose", h.ComposeDown)
-		docker.GET("/containers/:cid/stats", h.ContainerStats)
-		docker.POST("/batch-action", h.BatchContainerAction)
 		docker.GET("/networks", h.ListNetworks)
 		docker.GET("/volumes", h.ListVolumes)
+
+		// Mutations: admin + operator
+		opDocker := docker.Group("", auth.RoleRequired("admin", "operator"))
+		{
+			opDocker.POST("/install", h.Install)
+			opDocker.DELETE("", h.Uninstall)
+			opDocker.POST("/containers", h.CreateContainer)
+			opDocker.POST("/containers/:cid/action", h.ContainerAction)
+			opDocker.POST("/images/pull", h.PullImage)
+			opDocker.DELETE("/images/:iid", h.RemoveImage)
+			opDocker.POST("/compose", h.ComposeUp)
+			opDocker.DELETE("/compose", h.ComposeDown)
+			opDocker.GET("/containers/:cid/stats", h.ContainerStats)
+			opDocker.POST("/batch-action", h.BatchContainerAction)
+		}
 	}
 }
 
@@ -327,9 +361,13 @@ func (r *Router) registerDeployRoutes(rg *gin.RouterGroup) {
 	deploy := rg.Group("/deploys")
 	{
 		deploy.GET("", h.List)
-		deploy.POST("", h.Create)
 		deploy.GET("/:tid", h.Get)
-		deploy.DELETE("/:tid", h.Cancel)
+		// Mutations: admin + operator
+		opDeploy := deploy.Group("", auth.RoleRequired("admin", "operator"))
+		{
+			opDeploy.POST("", h.Create)
+			opDeploy.DELETE("/:tid", h.Cancel)
+		}
 	}
 }
 
@@ -337,28 +375,36 @@ func (r *Router) registerRKE2Routes(rg *gin.RouterGroup) {
 	h := NewRKE2Handler(r.repos, r.transport, r.hub)
 	clusters := rg.Group("/clusters")
 	{
+		// Read: all users
 		clusters.GET("", h.List)
-		clusters.POST("", h.Create)
 		clusters.GET("/:cid", h.Get)
-		clusters.PUT("/:cid/config", h.UpdateConfig)
 		clusters.GET("/:cid/status", h.Status)
-		clusters.POST("/:cid/upgrade", h.Upgrade)
-		clusters.DELETE("/:cid", h.Delete)
-		// Helm management
 		clusters.GET("/:cid/helm", h.HelmList)
-		clusters.POST("/:cid/helm/install", h.HelmInstall)
-		clusters.DELETE("/:cid/helm/:release", h.HelmUninstall)
-		// Rancher
-		clusters.POST("/:cid/rancher", h.InstallRancher)
 		clusters.GET("/:cid/rancher", h.RancherStatus)
-		// Pods
 		clusters.GET("/:cid/pods", h.GetPods)
+
+		// Mutations: admin + operator
+		opClusters := clusters.Group("", auth.RoleRequired("admin", "operator"))
+		{
+			opClusters.POST("", h.Create)
+			opClusters.PUT("/:cid/config", h.UpdateConfig)
+			opClusters.POST("/:cid/upgrade", h.Upgrade)
+			opClusters.POST("/:cid/helm/install", h.HelmInstall)
+			opClusters.DELETE("/:cid/helm/:release", h.HelmUninstall)
+			opClusters.POST("/:cid/rancher", h.InstallRancher)
+		}
+
+		// Cluster delete: admin only
+		adminClusters := clusters.Group("", auth.RoleRequired("admin"))
+		{
+			adminClusters.DELETE("/:cid", h.Delete)
+		}
 	}
 
-	// Pre-flight check (per node, not per cluster)
+	// Pre-flight check (per node)
 	{
 		rg.GET("/nodes/:id/preflight", h.PreFlightCheck)
-		rg.POST("/nodes/:id/preflight", h.PreFlightCheck) // POST for autofix
+		rg.POST("/nodes/:id/preflight", h.PreFlightCheck)
 	}
 }
 
@@ -393,12 +439,4 @@ func (r *Router) registerCronRoutes(rg *gin.RouterGroup) {
 	}
 }
 
-func (r *Router) registerUserRoutes(rg *gin.RouterGroup) {
-	h := NewUserHandler(r.repos, r.jm)
-	users := rg.Group("/users")
-	{
-		users.GET("", h.List)
-		users.POST("", h.Create)
-		users.DELETE("/:uid", h.Delete)
-	}
-}
+

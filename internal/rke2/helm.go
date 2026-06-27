@@ -3,13 +3,45 @@ package rke2
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/michael/device_grid/internal/transport"
 )
 
+var (
+	helmNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$`)
+	helmValueRe = regexp.MustCompile(`^[a-zA-Z0-9._\-/=]+$`)
+)
+
+func sanitizeForShell(s string) string {
+	for _, ch := range s {
+		switch ch {
+		case ';', '|', '&', '`', '$', '(', ')', '{', '}', '<', '>', '\n', '\r', '\\', '"', '\'', '!', '#':
+			return ""
+		}
+	}
+	return s
+}
+
 // HelmInstall installs a Helm chart on the RKE2 cluster
 func (m *Manager) HelmInstall(ctx context.Context, serverNodeID string, repoName, repoURL, chartName, namespace string, values map[string]string) (<-chan transport.StreamChunk, error) {
+	// Validate all inputs
+	if !helmNameRe.MatchString(chartName) {
+		return nil, fmt.Errorf("invalid chart name")
+	}
+	if repoName != "" && !helmNameRe.MatchString(repoName) {
+		return nil, fmt.Errorf("invalid repo name")
+	}
+	if namespace != "" && !helmNameRe.MatchString(namespace) {
+		return nil, fmt.Errorf("invalid namespace")
+	}
+	for k, v := range values {
+		if sanitizeForShell(k) == "" || sanitizeForShell(v) == "" {
+			return nil, fmt.Errorf("invalid helm value: %s", k)
+		}
+	}
+
 	var cmd strings.Builder
 	cmd.WriteString("export PATH=$PATH:/var/lib/rancher/rke2/bin\n")
 	cmd.WriteString("export KUBECONFIG=/etc/rancher/rke2/rke2.yaml\n\n")
@@ -64,6 +96,13 @@ echo "Release %s uninstalled"`, releaseName, nsFlag, releaseName)
 
 // InstallRancher installs Rancher Manager on the cluster via Helm
 func (m *Manager) InstallRancher(ctx context.Context, serverNodeID, hostname, password string, useMirror bool) (<-chan transport.StreamChunk, error) {
+	// Validate inputs
+	if sanitizeForShell(hostname) == "" {
+		return nil, fmt.Errorf("invalid hostname")
+	}
+	if sanitizeForShell(password) == "" {
+		return nil, fmt.Errorf("invalid password")
+	}
 	var cmd strings.Builder
 	cmd.WriteString("export PATH=$PATH:/var/lib/rancher/rke2/bin\n")
 	cmd.WriteString("export KUBECONFIG=/etc/rancher/rke2/rke2.yaml\n\n")

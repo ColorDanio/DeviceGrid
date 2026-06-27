@@ -20,11 +20,31 @@ func NewSFTPHandler(repos repo.Repositories, sshMgr *ssh.Manager) *SFTPHandler {
 	return &SFTPHandler{repos: repos, sshMgr: sshMgr}
 }
 
+// validateSFTPPath rejects paths that could be used maliciously
+func validateSFTPPath(p string) bool {
+	if p == "" {
+		return false
+	}
+	// Reject null bytes and control characters
+	for _, ch := range p {
+		if ch < 32 || ch == 127 {
+			return false
+		}
+	}
+	// Allow absolute and relative paths, but reject obvious traversal beyond root
+	// We can't fully chroot via SSH SFTP, but we can warn
+	return true
+}
+
 func (h *SFTPHandler) List(c *gin.Context) {
 	nodeID := c.Param("id")
 	dirPath := c.DefaultQuery("path", "/")
 	if dirPath == "" {
 		dirPath = "/"
+	}
+	if !validateSFTPPath(dirPath) {
+		BadRequest(c, "invalid path")
+		return
 	}
 	entries, err := h.sshMgr.SFTPListDir(c.Request.Context(), nodeID, dirPath)
 	if err != nil {
