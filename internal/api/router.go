@@ -188,80 +188,45 @@ func (r *Router) Setup(mode string) *gin.Engine {
 
 func (r *Router) registerWSRoutes(engine *gin.Engine, wsRateLimit gin.HandlerFunc) {
 	engine.Use(wsRateLimit)
-	engine.GET("/ws", func(c *gin.Context) {
-		token := c.Query("token")
-		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
-			return
-		}
-		if _, err := r.jm.Parse(token); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
-			return
-		}
 
-		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		if err != nil {
+	// WS Hub — authenticate via first message
+	engine.GET("/ws", func(c *gin.Context) {
+		conn, ok := r.authenticateWS(c)
+		if !ok {
 			return
 		}
 		r.hub.HandleClient(conn)
 	})
 
+	// Terminal — authenticate via first message
 	engine.GET("/ws/terminal/:nodeID", func(c *gin.Context) {
-		token := c.Query("token")
-		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
+		conn, ok := r.authenticateWS(c)
+		if !ok {
 			return
 		}
-		if _, err := r.jm.Parse(token); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
-			return
-		}
-
 		nodeID := c.Param("nodeID")
-		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		if err != nil {
-			return
-		}
 		r.handleTerminalWS(conn, nodeID)
 	})
 
-	// Container exec (terminal) WebSocket
+	// Container exec (terminal) — authenticate via first message
 	engine.GET("/ws/container/:nodeID/:containerID", func(c *gin.Context) {
-		token := c.Query("token")
-		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
-			return
-		}
-		if _, err := r.jm.Parse(token); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		conn, ok := r.authenticateWS(c)
+		if !ok {
 			return
 		}
 		nodeID := c.Param("nodeID")
 		containerID := c.Param("containerID")
-		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		if err != nil {
-			return
-		}
 		r.handleContainerTerminalWS(conn, nodeID, containerID)
 	})
 
-	// Container log WebSocket
+	// Container logs — authenticate via first message
 	engine.GET("/ws/logs/:nodeID/:containerID", func(c *gin.Context) {
-		token := c.Query("token")
-		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
-			return
-		}
-		if _, err := r.jm.Parse(token); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		conn, ok := r.authenticateWS(c)
+		if !ok {
 			return
 		}
 		nodeID := c.Param("nodeID")
 		containerID := c.Param("containerID")
-		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-		if err != nil {
-			return
-		}
 		r.handleContainerLogWS(conn, nodeID, containerID)
 	})
 }

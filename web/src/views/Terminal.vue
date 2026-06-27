@@ -191,10 +191,12 @@ function connectWS(sid: string) {
   s.status = s.reconnectAttempts > 0 ? 'reconnecting' : 'connecting'
   const token = localStorage.getItem('dg_token') || ''
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  const ws = new WebSocket(`${proto}://${location.host}/ws/terminal/${s.node.id}?token=${token}`)
+  const ws = new WebSocket(`${proto}://${location.host}/ws/terminal/${s.node.id}`)
   s.ws = ws
 
   ws.onopen = () => {
+    // Send auth token as first message (not in URL to prevent proxy log leakage)
+    ws.send(JSON.stringify({ token: token }))
     s.status = 'connected'
     s.reconnectAttempts = 0
     s.term!.write('')

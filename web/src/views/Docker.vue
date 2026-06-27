@@ -265,9 +265,11 @@ function initExecTerm() {
 
   const token = localStorage.getItem('dg_token') || ''
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  execWs = new WebSocket(`${proto}://${location.host}/ws/container/${selectedNode.value}/${execCid}?token=${token}`)
+  execWs = new WebSocket(`${proto}://${location.host}/ws/container/${selectedNode.value}/${execCid}`)
 
   execWs.onopen = () => {
+    // Send auth token as first message
+    execWs!.send(JSON.stringify({ token: token }))
     if (execWs?.readyState === WebSocket.OPEN) {
       execWs.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
     }
@@ -305,7 +307,8 @@ function initLogsWs() {
   logsTerm = term
   term.writeln('\x1b[90m● 连接日志流...\x1b[0m')
   const token = localStorage.getItem('dg_token') || ''; const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  logsWs = new WebSocket(`${proto}://${location.host}/ws/logs/${selectedNode.value}/${logsCid}?token=${token}`)
+  logsWs = new WebSocket(`${proto}://${location.host}/ws/logs/${selectedNode.value}/${logsCid}`)
+  logsWs.onopen = () => { logsWs!.send(JSON.stringify({ token: token })) }
   logsWs.onmessage = (ev) => { try { const m = JSON.parse(ev.data); if (m.type === 'output') term.write(decodeBase64(m.data)); else if (m.type === 'done') term.writeln('\x1b[33m\r\n● 日志流结束\x1b[0m') } catch {} }
   logsWs.onclose = () => term.writeln('\x1b[33m\r\n● 连接断开\x1b[0m')
 }
