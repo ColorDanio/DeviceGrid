@@ -37,6 +37,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	user, err := h.repos.Users().GetByUsername(c.Request.Context(), req.Username)
 	if err != nil {
+		// L2: Run dummy bcrypt to equalize timing — prevents user enumeration
+		auth.CheckPassword("$2a$10$dummyHashForTimingEqualizationXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", req.Password)
 		c.JSON(http.StatusUnauthorized, APIResponse{Code: 401, Message: "invalid credentials"})
 		return
 	}

@@ -8,7 +8,7 @@ const client: AxiosInstance = axios.create({
 
 client.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('dg_token')
+    const token = sessionStorage.getItem('dg_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -30,7 +30,7 @@ client.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response
       if (status === 401) {
-        localStorage.removeItem('dg_token')
+        sessionStorage.removeItem('dg_token')
         localStorage.removeItem('dg_user')
         if (window.location.pathname !== '/login') {
           window.location.href = '/login'

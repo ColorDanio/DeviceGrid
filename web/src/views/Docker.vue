@@ -69,6 +69,7 @@
                 </div>
                 <div class="c-btns">
                   <button v-if="c.state === 'running'" class="c-btn" @click.stop="openContainerLogs(c)" title="查看日志"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="showStats(c)" title="资源监控"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 3v18h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14l4-4 4 3 4-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                   <button v-if="c.state === 'running'" class="c-btn" @click.stop="execContainer(c)" title="进入终端"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 9l3 3-3 3M12 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
                   <button v-if="c.state === 'running'" class="c-btn" @click.stop="doAction(c.id,'stop')" title="停止"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg></button>
                   <button v-if="c.state === 'running'" class="c-btn" @click.stop="doAction(c.id,'restart')" title="重启"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="1.8"/></svg></button>
@@ -135,6 +136,23 @@
       <div ref="logsEl" class="logs-viewer"></div>
     </el-dialog>
 
+    <!-- Container Stats Dialog -->
+    <el-dialog v-model="statsVisible" :title="`容器监控: ${statsName}`" width="480px">
+      <div v-if="statsData" class="stats-grid">
+        <div class="stat-item"><span class="si-label">CPU</span><span class="si-value">{{ statsData.cpu || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">内存</span><span class="si-value">{{ statsData.mem || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">内存%</span><span class="si-value">{{ statsData.mem_pct || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">网络 I/O</span><span class="si-value">{{ statsData.net_io || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">磁盘 I/O</span><span class="si-value">{{ statsData.block_io || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">PIDs</span><span class="si-value">{{ statsData.pids || '—' }}</span></div>
+      </div>
+      <div v-else class="loading-text">采集中...</div>
+      <template #footer>
+        <button class="d-btn" @click="refreshStats" style="margin-right:auto">刷新</button>
+        <el-button @click="statsVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Pull Image -->
     <el-dialog v-model="showPull" title="拉取镜像" width="400px">
       <el-input v-model="pullName" placeholder="nginx:latest" />
@@ -150,7 +168,7 @@ import { Terminal } from '@xterm/xterm'
 import { createTerminal } from '@/utils/terminal'
 import { decodeBase64 } from '@/utils/codec'
 import { listNodes, type Node } from '@/api/nodes'
-import { listContainers, containerAction, listImages, pullImage, removeImage, listNetworks, listVolumes, getDockerInfo, type ContainerInfo, type ImageInfo, type NetworkInfo, type VolumeInfo } from '@/api/docker'
+import { listContainers, containerAction, listImages, pullImage, removeImage, listNetworks, listVolumes, getDockerInfo, getContainerStats, type ContainerInfo, type ImageInfo, type NetworkInfo, type VolumeInfo } from '@/api/docker'
 import client from '@/api/client'
 
 const nodes = ref<Node[]>([])
@@ -255,6 +273,9 @@ async function composeDown() {
 const execVisible = ref(false); const execName = ref(''); const execTermEl = ref<HTMLElement>()
 let execTerm: Terminal | null = null; let execWs: WebSocket | null = null; let execCid = ''; let execFit: any = null
 function execContainer(c: ContainerInfo) { execCid = c.id; execName.value = c.name; execVisible.value = true }
+const statsVisible = ref(false); const statsName = ref(''); const statsData = ref<Record<string,string>|null>(null); let statsCid = ''
+async function showStats(c: ContainerInfo) { statsCid = c.id; statsName.value = c.name; statsData.value = null; statsVisible.value = true; refreshStats() }
+async function refreshStats() { if (!selectedNode.value || !statsCid) return; try { statsData.value = await getContainerStats(selectedNode.value, statsCid) } catch { statsData.value = null } }
 function initExecTerm() {
   if (!execTermEl.value) return
   const { term, fit } = createTerminal(execTermEl.value)
@@ -263,7 +284,7 @@ function initExecTerm() {
   // Fit after dialog is fully rendered
   setTimeout(() => { try { fit.fit() } catch {} }, 100)
 
-  const token = localStorage.getItem('dg_token') || ''
+  const token = sessionStorage.getItem('dg_token') || ''
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   execWs = new WebSocket(`${proto}://${location.host}/ws/container/${selectedNode.value}/${execCid}`)
 
@@ -306,7 +327,7 @@ function initLogsWs() {
   const { term } = createTerminal(logsEl.value)
   logsTerm = term
   term.writeln('\x1b[90m● 连接日志流...\x1b[0m')
-  const token = localStorage.getItem('dg_token') || ''; const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const token = sessionStorage.getItem('dg_token') || ''; const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   logsWs = new WebSocket(`${proto}://${location.host}/ws/logs/${selectedNode.value}/${logsCid}`)
   logsWs.onopen = () => { logsWs!.send(JSON.stringify({ token: token })) }
   logsWs.onmessage = (ev) => { try { const m = JSON.parse(ev.data); if (m.type === 'output') term.write(decodeBase64(m.data)); else if (m.type === 'done') term.writeln('\x1b[33m\r\n● 日志流结束\x1b[0m') } catch {} }

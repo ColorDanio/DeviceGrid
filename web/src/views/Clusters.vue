@@ -183,6 +183,11 @@ spec:
         image: nginx:latest" spellcheck="false"></textarea>
           </div>
           <button class="action-btn action-primary" @click="handleApplyYAML" :disabled="!k8sYAML">kubectl apply -f</button>
+          <div class="k8s-delete-bar">
+            <input v-model="deleteKind" placeholder="类型(deployment/service)" class="k8s-input" />
+            <input v-model="deleteName" placeholder="名称" class="k8s-input" />
+            <button class="action-btn action-danger" @click="handleDeleteResource" :disabled="!deleteKind || !deleteName">删除</button>
+          </div>
           <pre class="console-output" style="margin-top:12px">{{ workloadOutput || '点击刷新查看当前工作负载' }}</pre>
         </div>
 
@@ -244,7 +249,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listNodes, type Node } from '@/api/nodes'
 import * as clustersApi from '@/api/clusters'
-import { getK8sResources, applyYAML } from '@/api/features'
+import { getK8sResources, applyYAML, deleteK8sResource } from '@/api/features'
 
 const loading = ref(false)
 const clusters = ref<clustersApi.Cluster[]>([])
@@ -424,6 +429,11 @@ async function loadWorkloads() {
 async function handleApplyYAML() {
   if (!currentCluster.value || !k8sYAML.value) return
   try { await applyYAML(currentCluster.value.id, k8sYAML.value); ElMessage.success('YAML 已提交'); setTimeout(loadWorkloads, 3000) } catch {}
+}
+const deleteKind = ref(''); const deleteName = ref('')
+async function handleDeleteResource() {
+  if (!currentCluster.value || !deleteKind.value || !deleteName.value) return
+  try { await deleteK8sResource(currentCluster.value.id, deleteKind.value, deleteName.value); ElMessage.success('删除成功'); deleteKind.value = ''; deleteName.value = ''; setTimeout(loadWorkloads, 2000) } catch {}
 }
 </script>
 

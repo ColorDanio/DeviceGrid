@@ -30,6 +30,7 @@ declare module 'vue' {
     NodeSelector: typeof import('./src/components/NodeSelector.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SafeIcon: typeof import('./src/components/SafeIcon.vue')['default']
     TerminalPane: typeof import('./src/components/TerminalPane.vue')['default']
     ThemeSwitcher: typeof import('./src/components/ThemeSwitcher.vue')['default']
   }

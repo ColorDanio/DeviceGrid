@@ -175,10 +175,24 @@ function attachTerminal(sid: string) {
   const container = refMap.get(sid)
   if (!container) { setTimeout(() => attachTerminal(sid), 50); return }
 
-  const { term, fit } = createTerminal(container)
+  const result = createTerminal(container)
+  const term = result.term
+  const fit = result.fit
+  const searchAddon = result.search
   s.term = term
   s.fit = fit
   s.container = container
+
+  // Ctrl+F search in terminal
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.ctrlKey && e.code === 'KeyF') {
+      e.preventDefault()
+      const query = window.prompt('搜索终端:')
+      if (query && searchAddon) { searchAddon.findNext(query) }
+      return false
+    }
+    return true
+  })
 
   connectWS(sid)
   setTimeout(() => { try { fit.fit() } catch {} }, 80)
@@ -189,7 +203,7 @@ function connectWS(sid: string) {
   if (!s || !s.term) return
 
   s.status = s.reconnectAttempts > 0 ? 'reconnecting' : 'connecting'
-  const token = localStorage.getItem('dg_token') || ''
+  const token = sessionStorage.getItem('dg_token') || ''
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const ws = new WebSocket(`${proto}://${location.host}/ws/terminal/${s.node.id}`)
   s.ws = ws
