@@ -39,7 +39,7 @@ func (m *Manager) execWithRetry(ctx context.Context, nodeID string, cmd string, 
 
 		session, err := client.NewSession()
 		if err != nil {
-			// Stale connection — close it and retry
+			// Stale connection — close it (don't release to pool)
 			client.Close()
 			lastErr = fmt.Errorf("new session (stale?): %w", err)
 			continue
@@ -52,25 +52,28 @@ func (m *Manager) execWithRetry(ctx context.Context, nodeID string, cmd string, 
 		err = session.Run(cmd)
 		session.Close()
 
-		// Return client to pool regardless (it might still be usable for other sessions)
-		m.releaseClient(nodeID, client)
-
-		exitCode := 0
 		if err != nil {
 			if exitErr, ok := err.(*ssh.ExitError); ok {
-				exitCode = exitErr.ExitStatus()
-			} else {
-				// Connection-level error — don't return to pool
-				lastErr = fmt.Errorf("exec: %w", err)
-				client.Close()
-				continue
+				// Command exited with non-zero — still a good connection
+				m.releaseClient(nodeID, client)
+				return ExecResult{
+					Stdout:   stdout.String(),
+					Stderr:   stderr.String(),
+					ExitCode: exitErr.ExitStatus(),
+				}, nil
 			}
+			// Connection-level error — don't return to pool
+			client.Close()
+			lastErr = fmt.Errorf("exec: %w", err)
+			continue
 		}
 
+		// Success — return client to pool
+		m.releaseClient(nodeID, client)
 		return ExecResult{
 			Stdout:   stdout.String(),
 			Stderr:   stderr.String(),
-			ExitCode: exitCode,
+			ExitCode: 0,
 		}, nil
 	}
 	return ExecResult{}, lastErr
@@ -90,7 +93,8 @@ func (m *Manager) ExecStream(ctx context.Context, nodeID string, cmd string) (<-
 
 	session, err := client.NewSession()
 	if err != nil {
-		m.releaseClient(nodeID, client)
+		// Stale connection — close, don't release to pool
+		client.Close()
 		return nil, fmt.Errorf("new session: %w", err)
 	}
 
@@ -117,25 +121,46 @@ func (m *Manager) ExecStream(ctx context.Context, nodeID string, cmd string) (<-
 
 	go func() {
 		defer session.Close()
-		defer m.releaseClient(nodeID, client)
 		defer close(ch)
 
+		// Read stdout/stderr until the command finishes
 		done := make(chan struct{})
 		go func() {
-			scanner := newLineReader(stdoutPipe)
-			for scanner.Scan() {
-				ch <- StreamChunk{Type: "stdout", Data: scanner.Text()}
+			buf := make([]byte, 8192)
+			for {
+				n, err := stdoutPipe.Read(buf)
+				if n > 0 {
+					ch <- StreamChunk{Type: "stdout", Data: string(buf[:n])}
+				}
+				if err != nil {
+					break
+				}
 			}
-			scanner = newLineReader(stderrPipe)
-			for scanner.Scan() {
-				ch <- StreamChunk{Type: "stderr", Data: scanner.Text()}
+			// Read stderr
+			for {
+				n, err := stderrPipe.Read(buf)
+				if n > 0 {
+					ch <- StreamChunk{Type: "stderr", Data: string(buf[:n])}
+				}
+				if err != nil {
+					break
+				}
 			}
 			close(done)
 		}()
 
+		// Wait for completion OR context cancellation
 		select {
 		case <-done:
 		case <-ctx.Done():
+			// Context cancelled — kill the remote process via signal
+			_ = session.Signal(ssh.SIGTERM)
+			// Brief wait for graceful exit
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				_ = session.Signal(ssh.SIGKILL)
+			}
 		}
 
 		exitCode := 0
@@ -146,6 +171,14 @@ func (m *Manager) ExecStream(ctx context.Context, nodeID string, cmd string) (<-
 			}
 		}
 		ch <- StreamChunk{Type: "exit", ExitCode: exitCode}
+
+		// Release client back to pool ONLY if the connection is still good
+		if ctx.Err() == nil {
+			m.releaseClient(nodeID, client)
+		} else {
+			// Context was cancelled — connection may be in bad state
+			client.Close()
+		}
 	}()
 
 	return ch, nil

@@ -31,12 +31,15 @@ type Config struct {
 }
 
 func NewManager(repos repo.Repositories, enc *crypto.Encryptor, cfg Config) *Manager {
-	return &Manager{
+	m := &Manager{
 		repos:  repos,
 		enc:    enc,
 		pools:  make(map[string]*nodePool),
 		config: cfg,
 	}
+	// Background reaper for stale connections
+	go m.reaper()
+	return m
 }
 
 func (m *Manager) getClient(ctx context.Context, nodeID string) (*ssh.Client, error) {
@@ -56,39 +59,40 @@ func (m *Manager) getClientForNode(node *model.Node) (*ssh.Client, error) {
 	}
 	m.mu.Unlock()
 
-	// Try to get an existing idle connection first (fast path)
+	// Fast path: reuse idle connection
 	if client := pool.get(); client != nil {
 		return client, nil
 	}
 
-	// No idle connection — acquire dial lock to prevent thundering herd
-	// Multiple goroutines requesting the same node will wait for one dial
+	// Slow path: dial new connection (with herd prevention)
 	pool.dialMu.Lock()
 	defer pool.dialMu.Unlock()
 
-	// Double-check after acquiring lock — someone else may have just dialed
+	// Double-check after acquiring dial lock
 	if client := pool.get(); client != nil {
 		return client, nil
 	}
 
-	// Dial a new connection
 	client, err := m.dial(node)
 	if err != nil {
 		return nil, err
 	}
-
 	return client, nil
 }
 
-// releaseClient returns a client to the pool for reuse
+// releaseClient returns a client to the pool. If the pool is full or the
+// client is dead, it closes the client.
 func (m *Manager) releaseClient(nodeID string, client *ssh.Client) {
+	if client == nil {
+		return
+	}
 	m.mu.Lock()
 	pool, ok := m.pools[nodeID]
-	if !ok {
-		pool = newNodePool(nodeID, m.config.MaxConnections)
-		m.pools[nodeID] = pool
-	}
 	m.mu.Unlock()
+	if !ok {
+		client.Close()
+		return
+	}
 	pool.put(client)
 }
 
@@ -115,16 +119,11 @@ func (m *Manager) dial(node *model.Node) (*ssh.Client, error) {
 	return client, nil
 }
 
-// getHostKeyCallback implements TOFU (Trust On First Use):
-// - If node has no stored host key: accept and store it (first connection)
-// - If node has a stored host key: verify it matches
+// getHostKeyCallback implements TOFU
 func (m *Manager) getHostKeyCallback(node *model.Node) ssh.HostKeyCallback {
 	if node.HostKey == "" {
-		// First connection — accept any key and store it
 		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			storedKey := string(ssh.MarshalAuthorizedKey(key))
-			storedKey = strings.TrimSpace(storedKey)
-			// Persist to database
+			storedKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key)))
 			ctx := context.Background()
 			node.HostKey = storedKey
 			_ = m.repos.Nodes().Update(ctx, node)
@@ -133,10 +132,8 @@ func (m *Manager) getHostKeyCallback(node *model.Node) ssh.HostKeyCallback {
 		}
 	}
 
-	// Parse stored host key
 	storedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(node.HostKey))
 	if err != nil {
-		// Corrupted stored key — fall back to TOFU
 		slog.Warn("ssh host key parse failed, re-trusting", "node", node.Name, "error", err)
 		return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			storedKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key)))
@@ -147,14 +144,12 @@ func (m *Manager) getHostKeyCallback(node *model.Node) ssh.HostKeyCallback {
 		}
 	}
 
-	// Verify against stored key
 	return ssh.FixedHostKey(storedKey)
 }
 
 func (m *Manager) getAuthMethods(node *model.Node) ([]ssh.AuthMethod, error) {
 	var methods []ssh.AuthMethod
 
-	// Try private key first (more secure, preferred by servers with PasswordAuthentication no)
 	if node.PrivateKeyEnc != "" {
 		keyBytes, err := m.enc.DecryptString(node.PrivateKeyEnc)
 		if err == nil {
@@ -164,7 +159,6 @@ func (m *Manager) getAuthMethods(node *model.Node) ([]ssh.AuthMethod, error) {
 		}
 	}
 
-	// Then password + keyboard-interactive
 	if node.PasswordEnc != "" {
 		password, err := m.enc.DecryptString(node.PasswordEnc)
 		if err == nil {
@@ -182,7 +176,7 @@ func (m *Manager) getAuthMethods(node *model.Node) ([]ssh.AuthMethod, error) {
 	}
 
 	if len(methods) == 0 {
-		return nil, fmt.Errorf("no authentication method available for node %s (no password or private key)", node.ID)
+		return nil, fmt.Errorf("no authentication method available for node %s", node.ID)
 	}
 	return methods, nil
 }
@@ -191,95 +185,160 @@ func (m *Manager) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, pool := range m.pools {
-		pool.closeAll()
+		pool.stop()
 	}
+	m.pools = nil
 }
 
-// RemovePool cleans up SSH connections for a deleted node
 func (m *Manager) RemovePool(nodeID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if pool, ok := m.pools[nodeID]; ok {
-		pool.closeAll()
+		pool.stop()
 		delete(m.pools, nodeID)
 	}
+}
+
+// reaper periodically scans all pools and removes dead connections
+func (m *Manager) reaper() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		m.mu.Lock()
+		for _, pool := range m.pools {
+			pool.reapDead()
+		}
+		m.mu.Unlock()
+	}
+}
+
+// ===== nodePool =====
+
+type pooledClient struct {
+	client   *ssh.Client
+	lastUsed time.Time
 }
 
 type nodePool struct {
 	nodeID  string
 	max     int
 	mu      sync.Mutex
-	clients []*ssh.Client
-	dialMu  sync.Mutex // Prevents thundering herd of concurrent dials
+	clients []*pooledClient
+	dialMu  sync.Mutex
+	stopCh  chan struct{}
+	stopOnce sync.Once
 }
 
 func newNodePool(nodeID string, max int) *nodePool {
-	pool := &nodePool{nodeID: nodeID, max: max}
-	// Start keepalive goroutine for this pool
-	go pool.keepalive()
-	return pool
+	p := &nodePool{
+		nodeID: nodeID,
+		max:    max,
+		stopCh: make(chan struct{}),
+	}
+	go p.keepaliveLoop()
+	return p
 }
 
-func (p *nodePool) keepalive() {
+func (p *nodePool) keepaliveLoop() {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
-	for range ticker.C {
-		p.mu.Lock()
-		var alive []*ssh.Client
-		for _, c := range p.clients {
-			_, _, err := c.SendRequest("keepalive@golang.org", true, nil)
-			if err != nil {
-				c.Close()
-			} else {
-				alive = append(alive, c)
-			}
+	for {
+		select {
+		case <-p.stopCh:
+			return
+		case <-ticker.C:
+			p.reapDead()
 		}
-		p.clients = alive
-		p.mu.Unlock()
 	}
 }
 
+// reapDead checks all idle connections and removes dead ones.
+// Also closes connections that have been idle too long (>5 min).
+func (p *nodePool) reapDead() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var alive []*pooledClient
+	maxIdle := 5 * time.Minute
+	for _, pc := range p.clients {
+		// Check if connection is still alive
+		_, _, err := pc.client.SendRequest("keepalive@devicegrid", true, nil)
+		if err != nil {
+			pc.client.Close()
+			continue
+		}
+		// Check idle timeout
+		if time.Since(pc.lastUsed) > maxIdle && len(p.clients) > 1 {
+			pc.client.Close()
+			continue
+		}
+		pc.lastUsed = time.Now()
+		alive = append(alive, pc)
+	}
+	p.clients = alive
+}
+
+// get retrieves an idle connection from the pool. Returns nil if pool is empty.
+// The caller is responsible for calling put when done.
 func (p *nodePool) get() *ssh.Client {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	// Try connections from the end, discard dead ones
 	for len(p.clients) > 0 {
-		client := p.clients[len(p.clients)-1]
+		pc := p.clients[len(p.clients)-1]
 		p.clients = p.clients[:len(p.clients)-1]
-		// Quick health check — send a global request
-		_, _, err := client.SendRequest("keepalive@golang.org", true, nil)
+		// Quick health check
+		_, _, err := pc.client.SendRequest("keepalive@devicegrid", true, nil)
 		if err != nil {
-			// Dead connection — discard and try next
-			client.Close()
-			continue
+			pc.client.Close()
+			continue // Try next
 		}
-		return client
+		return pc.client
 	}
 	return nil
 }
 
+// put returns a client to the pool for reuse.
 func (p *nodePool) put(client *ssh.Client) {
+	if client == nil {
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	// Check if pool is being stopped
+	select {
+	case <-p.stopCh:
+		client.Close()
+		return
+	default:
+	}
 	if len(p.clients) >= p.max {
 		client.Close()
 		return
 	}
-	p.clients = append(p.clients, client)
+	p.clients = append(p.clients, &pooledClient{
+		client:   client,
+		lastUsed: time.Now(),
+	})
 }
 
 func (p *nodePool) closeAll() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for _, c := range p.clients {
-		c.Close()
+	for _, pc := range p.clients {
+		pc.client.Close()
 	}
 	p.clients = nil
 }
 
+func (p *nodePool) stop() {
+	p.stopOnce.Do(func() {
+		close(p.stopCh)
+	})
+	p.closeAll()
+}
+
 func dialWithPassword(host string, port int, username, password string, timeout time.Duration) (*ssh.Client, error) {
 	config := &ssh.ClientConfig{
-		User:            username,
+		User: username,
 		Auth: []ssh.AuthMethod{
 			ssh.Password(password),
 			ssh.KeyboardInteractive(func(name, instruction string, questions []string, echos []bool) ([]string, error) {
@@ -291,9 +350,9 @@ func dialWithPassword(host string, port int, username, password string, timeout 
 			}),
 		},
 		HostKeyCallback: ssh.HostKeyCallback(func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			return nil // Trust establishment — key will be stored by the trust flow
+			return nil
 		}),
-		Timeout:         timeout,
+		Timeout: timeout,
 	}
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	return ssh.Dial("tcp", addr, config)

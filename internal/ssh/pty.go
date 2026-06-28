@@ -3,17 +3,23 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
 )
 
 type PTYSession struct {
-	session  *ssh.Session
-	stdin    chan []byte
-	stdout   chan []byte
-	done     chan struct{}
+	session   *ssh.Session
+	stdin     chan []byte
+	stdout    chan []byte
+	done      chan struct{}
+	closed    chan struct{}
 	closeOnce sync.Once
+	nodeID    string
+	client    *ssh.Client
+	stdinPipe io.WriteCloser
+	manager   *Manager
 }
 
 func (m *Manager) NewPTYSession(ctx context.Context, nodeID string, cols, rows uint16) (*PTYSession, error) {
@@ -36,7 +42,8 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 
 	session, err := client.NewSession()
 	if err != nil {
-		return nil, fmt.Errorf("new session: %w", err)
+		client.Close() // Don't pool stale client
+		return nil, err
 	}
 
 	modes := ssh.TerminalModes{
@@ -48,56 +55,59 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 	term := "xterm-256color"
 	if err := session.RequestPty(term, int(rows), int(cols), modes); err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, fmt.Errorf("request pty: %w", err)
 	}
 
 	stdinPipe, err := session.StdinPipe()
 	if err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, err
 	}
 	stdoutPipe, err := session.StdoutPipe()
 	if err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, err
 	}
 	stderrPipe, err := session.StderrPipe()
 	if err != nil {
 		session.Close()
+		m.releaseClient(nodeID, client)
 		return nil, err
 	}
 
 	if customCmd != "" {
-		// Wrap command with UTF-8 locale for container exec
-		wrapped := fmt.Sprintf(
-			`export LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=xterm-256color; %s`,
-			customCmd,
-		)
+		wrapped := fmt.Sprintf(`export LANG=C.UTF-8 LC_ALL=C.UTF-8 TERM=xterm-256color; %s`, customCmd)
 		if err := session.Start(wrapped); err != nil {
 			session.Close()
+			m.releaseClient(nodeID, client)
 			return nil, fmt.Errorf("start command: %w", err)
 		}
 	} else {
-		// Set UTF-8 environment variables before starting the shell
-		session.Setenv("LANG", "C.UTF-8")
-		session.Setenv("LC_ALL", "C.UTF-8")
-		session.Setenv("LANGUAGE", "en_US.UTF-8")
 		session.Setenv("TERM", "xterm-256color")
 		if err := session.Shell(); err != nil {
 			session.Close()
+			m.releaseClient(nodeID, client)
 			return nil, fmt.Errorf("start shell: %w", err)
 		}
 	}
 
 	ps := &PTYSession{
-		session: session,
-		stdin:   make(chan []byte, 64),
-		stdout:  make(chan []byte, 256),
-		done:    make(chan struct{}),
+		session:   session,
+		stdin:     make(chan []byte, 64),
+		stdout:    make(chan []byte, 256),
+		done:      make(chan struct{}),
+		closed:    make(chan struct{}),
+		nodeID:    nodeID,
+		client:    client,
+		stdinPipe: stdinPipe,
+		manager:   m,
 	}
 
+	// stdout reader
 	go func() {
-		defer close(ps.done)
 		buf := make([]byte, 8192)
 		for {
 			n, err := stdoutPipe.Read(buf)
@@ -106,7 +116,7 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 				copy(data, buf[:n])
 				select {
 				case ps.stdout <- data:
-				case <-ctx.Done():
+				case <-ps.closed:
 					return
 				}
 			}
@@ -116,6 +126,7 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 		}
 	}()
 
+	// stderr reader
 	go func() {
 		buf := make([]byte, 8192)
 		for {
@@ -125,7 +136,7 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 				copy(data, buf[:n])
 				select {
 				case ps.stdout <- data:
-				case <-ctx.Done():
+				case <-ps.closed:
 					return
 				}
 			}
@@ -135,6 +146,7 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 		}
 	}()
 
+	// stdin writer
 	go func() {
 		for {
 			select {
@@ -146,9 +158,19 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 				if err != nil {
 					return
 				}
-			case <-ctx.Done():
+			case <-ps.closed:
 				return
 			}
+		}
+	}()
+
+	// Session done detector — closes ps.done when the remote session ends
+	go func() {
+		_ = session.Wait()
+		select {
+		case <-ps.done:
+		default:
+			close(ps.done)
 		}
 	}()
 
@@ -156,8 +178,12 @@ func (m *Manager) newPTYWithCommand(ctx context.Context, nodeID string, cols, ro
 }
 
 func (ps *PTYSession) Write(data []byte) error {
-	ps.stdin <- data
-	return nil
+	select {
+	case ps.stdin <- data:
+		return nil
+	case <-ps.done:
+		return fmt.Errorf("session closed")
+	}
 }
 
 func (ps *PTYSession) Read() ([]byte, error) {
@@ -175,7 +201,27 @@ func (ps *PTYSession) Resize(cols, rows uint16) error {
 
 func (ps *PTYSession) Close() error {
 	ps.closeOnce.Do(func() {
+		// Signal all goroutines to stop
+		select {
+		case <-ps.closed:
+		default:
+			close(ps.closed)
+		}
+		// Send EOF to remote shell
+		ps.stdinPipe.Write([]byte("\x04"))
+		ps.stdinPipe.Close()
+		// Close the SSH session
 		ps.session.Close()
+		// Signal done if not already
+		select {
+		case <-ps.done:
+		default:
+			close(ps.done)
+		}
+		// CRITICAL: Release the SSH client back to the connection pool
+		if ps.manager != nil && ps.client != nil && ps.nodeID != "" {
+			ps.manager.releaseClient(ps.nodeID, ps.client)
+		}
 	})
 	return nil
 }
