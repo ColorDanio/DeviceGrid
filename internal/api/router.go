@@ -181,6 +181,37 @@ func (r *Router) Setup(mode string) *gin.Engine {
 		}
 	}
 
+	// K8s workload management
+	k8s := NewK8sHandler(r)
+	clusters := engine.Group("/api/clusters")
+	{
+		clusters.GET("/:cid/resources", auth.AuthRequired(r.jm), k8s.GetResources)
+		clusters.POST("/:cid/apply", auth.RoleRequired("admin", "operator"), k8s.ApplyYAML)
+		clusters.POST("/:cid/delete-resource", auth.RoleRequired("admin", "operator"), k8s.DeleteResource)
+	}
+
+	// SSH key management
+	sshKeyH := NewSSHKeyHandler(r)
+	engine.GET("/api/nodes/:id/ssh-key", auth.AuthRequired(r.jm), sshKeyH.GetKeyInfo)
+	engine.POST("/api/nodes/:id/rotate-key", auth.RoleRequired("admin", "operator"), sshKeyH.RotateKey)
+
+	// Node comparison
+	compareH := NewCompareHandler(r)
+	engine.GET("/api/nodes/compare", auth.AuthRequired(r.jm), compareH.Compare)
+
+	// Audit log
+	auditH := NewAuditHandler()
+	engine.GET("/api/audit", auth.AuthRequired(r.jm), auditH.List)
+
+	// Metrics export
+	exportH := NewMetricsExportHandler(r)
+	engine.GET("/api/metrics/export", auth.AuthRequired(r.jm), exportH.ExportCSV)
+	engine.GET("/metrics", exportH.PrometheusMetrics) // No auth for Prometheus scraping
+
+	// Batch file distribution
+	fileH := NewFileDistributeHandler(r)
+	engine.POST("/api/nodes/distribute-file", auth.RoleRequired("admin", "operator"), fileH.Distribute)
+
 	r.registerWSRoutes(engine, RateLimit(60, time.Minute))
 
 	return engine

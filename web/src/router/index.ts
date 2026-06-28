@@ -73,6 +73,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/Automation.vue'),
         meta: { title: '自动化', icon: 'AlarmClock' },
       },
+      {
+        path: 'ssh-keys',
+        name: 'SSHKeys',
+        component: () => import('@/views/SSHKeys.vue'),
+        meta: { title: '密钥管理', icon: 'Key' },
+      },
+      {
+        path: 'compare',
+        name: 'Compare',
+        component: () => import('@/views/Compare.vue'),
+        meta: { title: '配置对比', icon: 'Switch' },
+      },
+      {
+        path: 'audit',
+        name: 'Audit',
+        component: () => import('@/views/Audit.vue'),
+        meta: { title: '审计日志', icon: 'Document' },
+      },
     ],
   },
   {

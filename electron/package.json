@@ -15,24 +15,39 @@
   "build": {
     "appId": "com.devicegrid.desktop",
     "productName": "DeviceGrid",
-    "directories": { "output": "release" },
-    "files": ["main.js", "icon.png"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "icon.png"
+    ],
     "extraResources": [
-      { "from": "../bin/devicegrid-server", "to": "bin/devicegrid-server" }
+      {
+        "from": "../bin/devicegrid-server",
+        "to": "bin/devicegrid-server"
+      }
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "mac": {
-      "target": ["dmg"]
+      "target": [
+        "dmg"
+      ]
     }
   },
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^33.4.11",
     "electron-builder": "^25.0.0"
   }
 }

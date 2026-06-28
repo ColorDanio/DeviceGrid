@@ -93,6 +93,9 @@ const icons: Record<string, string> = {
   SFTP: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M3 7l2-3h6l2 3h8v12H3V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
   Settings: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   Automation: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  SSHKeys: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="8" cy="15" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M10.85 12.15L19 4M18 5l2 2M15 8l2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  Switch: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M16 3l4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  Document: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
 }
 
 const menuItems = computed(() =>

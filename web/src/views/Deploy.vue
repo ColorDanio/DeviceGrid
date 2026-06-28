@@ -2,10 +2,10 @@
   <div class="page-container">
     <div class="page-header">
       <div><h2>批量部署</h2><p class="page-subtitle">向多个节点批量推送脚本并实时查看执行结果</p></div>
-      <button class="btn-primary" @click="showWizard = true">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        新建任务
-      </button>
+      <div class="header-actions">
+        <button class="btn-primary" @click="showFileDialog = true">文件分发</button>
+        <button class="btn-primary" @click="showWizard = true">新建任务</button>
+      </div>
     </div>
 
     <!-- Task List -->
@@ -77,17 +77,42 @@
               <el-input-number v-model="deployForm.concurrency" :min="1" :max="50" style="width:100%" />
             </el-form-item>
           </div>
-          <el-form-item :label="deployForm.type === 'script' ? '脚本内容' : '包名（空格分隔）'">
+          <el-form-item label="脚本内容">
             <textarea v-model="deployForm.payload" class="script-editor" :placeholder="deployForm.type === 'script' ? '#!/bin/bash\napt update && apt upgrade -y' : 'nginx redis-server'" spellcheck="false" rows="6"></textarea>
           </el-form-item>
         </el-form>
       </div>
-
       <template #footer>
-        <el-button @click="showWizard = false">取消</el-button>
-        <el-button type="primary" :loading="executing" :disabled="selectedNodes.length === 0 || !deployForm.payload" @click="executeDeploy">执行部署</el-button>
-      </template>
-    </el-dialog>
+          <el-button @click="showWizard = false">取消</el-button>
+          <el-button type="primary" :loading="executing" :disabled="selectedNodes.length === 0 || !deployForm.payload" @click="executeDeploy">执行部署</el-button>
+        </template>
+      </el-dialog>
+
+      <!-- File Distribution Dialog -->
+      <el-dialog v-model="showFileDialog" title="批量文件分发" width="520px">
+        <div class="file-dist-form">
+          <div class="fd-row">
+            <label>选择节点</label>
+            <div class="fd-nodes">
+              <label v-for="n in onlineNodes" :key="n.id" class="fd-node">
+                <input type="checkbox" :value="n.id" v-model="fileForm.nodeIds" /> {{ n.name }}
+              </label>
+            </div>
+          </div>
+          <div class="fd-row">
+            <label>远程路径</label>
+            <input v-model="fileForm.remotePath" placeholder="/tmp/filename (留空自动)" />
+          </div>
+          <div class="fd-row">
+            <label>选择文件</label>
+            <input type="file" @change="onFileSelect" class="fd-file" />
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="showFileDialog = false">取消</el-button>
+          <el-button type="primary" :loading="distributing" :disabled="fileForm.nodeIds.length === 0 || !selectedFile" @click="handleDistribute">分发</el-button>
+        </template>
+      </el-dialog>
 
     <!-- Task Detail Dialog -->
     <el-dialog v-model="detailVisible" :title="currentTask?.name || '任务详情'" width="860px" top="5vh" :close-on-click-modal="false">
@@ -120,16 +145,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listNodes, type Node } from '@/api/nodes'
 import { listDeploys, createDeploy, getDeploy, type DeployTask } from '@/api/deploy'
+import { distributeFile } from '@/api/features'
 
 const loading = ref(false)
 const executing = ref(false)
 const tasks = ref<DeployTask[]>([])
 const nodes = ref<Node[]>([])
 const showWizard = ref(false)
+const showFileDialog = ref(false)
+const distributing = ref(false)
+const selectedFile = ref<File | null>(null)
+const fileForm = reactive({ nodeIds: [] as string[], remotePath: '' })
+const onlineNodes = computed(() => nodes.value.filter(n => n.status === 'online'))
 const selectedNodes = ref<string[]>([])
 const detailVisible = ref(false)
 const currentTask = ref<DeployTask | null>(null)
@@ -194,9 +225,21 @@ onMounted(async () => {
   pollTimer = setInterval(loadTasks, 10000)
 })
 onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
+
+function onFileSelect(e: Event) { const input = e.target as HTMLInputElement; selectedFile.value = input.files?.[0] || null }
+async function handleDistribute() {
+  if (!selectedFile.value || fileForm.nodeIds.length === 0) return
+  distributing.value = true
+  try {
+    const result = await distributeFile(fileForm.nodeIds, selectedFile.value, fileForm.remotePath || undefined)
+    ElMessage.success(`分发完成: 成功 ${result.success}, 失败 ${result.failed}`)
+    showFileDialog.value = false; selectedFile.value = null; fileForm.nodeIds = []; fileForm.remotePath = ''
+  } catch {} finally { distributing.value = false }
+}
 </script>
 
 <style scoped lang="scss">
+.header-actions { display: flex; gap: 8px; }
 .btn-primary { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: 8px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; &:hover { background: var(--accent-dark); } }
 
 .task-list-card { min-height: 300px; padding: 12px; }
@@ -239,4 +282,10 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
   .rc-output { font-size: 11px; font-family: 'JetBrains Mono', monospace; max-height: 120px; overflow-y: auto; color: var(--dg-text-dim); white-space: pre-wrap; word-break: break-all; margin: 0; } }
 
 .detail-payload { .dp-label { font-size: 12px; font-weight: 600; margin-bottom: 6px; } .dp-code { font-size: 11px; font-family: 'JetBrains Mono', monospace; padding: 10px; background: var(--dg-bg-3); border-radius: 8px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; margin: 0; } }
+
+.file-dist-form { display: flex; flex-direction: column; gap: 14px; }
+.fd-row { display: flex; flex-direction: column; gap: 6px; label { font-size: 12px; color: var(--dg-text-dim); }
+  input { height: 32px; padding: 0 10px; border: 1px solid var(--dg-border); border-radius: 6px; background: var(--dg-input-bg); color: var(--dg-text); font-size: 12px; outline: none; font-family: inherit; &:focus { border-color: var(--accent); } }
+  .fd-file { padding: 4px; border: 1px solid var(--dg-border); border-radius: 6px; background: var(--dg-input-bg); color: var(--dg-text); } }
+.fd-nodes { display: flex; flex-wrap: wrap; gap: 6px; .fd-node { display: flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--dg-border); cursor: pointer; input { accent-color: var(--accent); } } }
 </style>

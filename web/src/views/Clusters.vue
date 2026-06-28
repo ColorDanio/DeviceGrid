@@ -158,6 +158,34 @@
           </div>
         </div>
 
+        <!-- Workloads Tab (K8s YAML apply) -->
+        <div v-if="activeTab === 'workloads'" class="detail-content">
+          <div class="config-header">
+            <h4>K8s 工作负载</h4>
+            <div style="display:flex;gap:8px">
+              <button class="action-btn" @click="loadWorkloads">刷新列表</button>
+            </div>
+          </div>
+          <div style="margin-bottom:12px">
+            <textarea v-model="k8sYAML" class="config-editor" rows="8" placeholder="apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest" spellcheck="false"></textarea>
+          </div>
+          <button class="action-btn action-primary" @click="handleApplyYAML" :disabled="!k8sYAML">kubectl apply -f</button>
+          <pre class="console-output" style="margin-top:12px">{{ workloadOutput || '点击刷新查看当前工作负载' }}</pre>
+        </div>
+
         <!-- Config Tab -->
         <div v-if="activeTab === 'config'" class="detail-content">
           <div class="config-header">
@@ -216,6 +244,7 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listNodes, type Node } from '@/api/nodes'
 import * as clustersApi from '@/api/clusters'
+import { getK8sResources, applyYAML } from '@/api/features'
 
 const loading = ref(false)
 const clusters = ref<clustersApi.Cluster[]>([])
@@ -252,10 +281,13 @@ const helmNs = ref('')
 const rancherInfo = ref({ installed: false, version: '' })
 const rancherHost = ref('')
 const rancherMsg = ref('')
+const k8sYAML = ref('')
+const workloadOutput = ref('')
 
 const onlineNodes = computed(() => nodes.value.filter(n => n.status === 'online'))
 const tabs = [
   { id: 'overview', name: '概览' },
+  { id: 'workloads', name: '工作负载' },
   { id: 'config', name: '配置' },
   { id: 'pods', name: 'Pods' },
   { id: 'helm', name: 'Helm' },
@@ -384,6 +416,15 @@ async function handleDelete(c: clustersApi.Cluster) {
 }
 
 onMounted(() => loadData())
+
+async function loadWorkloads() {
+  if (!currentCluster.value) return
+  try { workloadOutput.value = await getK8sResources(currentCluster.value.id, 'all') } catch {}
+}
+async function handleApplyYAML() {
+  if (!currentCluster.value || !k8sYAML.value) return
+  try { await applyYAML(currentCluster.value.id, k8sYAML.value); ElMessage.success('YAML 已提交'); setTimeout(loadWorkloads, 3000) } catch {}
+}
 </script>
 
 <style scoped lang="scss">
