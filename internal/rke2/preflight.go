@@ -18,10 +18,10 @@ type PreFlightCheckResult struct {
 
 // PreFlightResult is the complete pre-flight check result
 type PreFlightResult struct {
-	NodeID   string                `json:"node_id"`
-	NodeName string                `json:"node_name"`
-	AllPassed bool                 `json:"all_passed"`
-	Checks   []PreFlightCheckResult `json:"checks"`
+	NodeID    string                 `json:"node_id"`
+	NodeName  string                 `json:"node_name"`
+	AllPassed bool                   `json:"all_passed"`
+	Checks    []PreFlightCheckResult `json:"checks"`
 }
 
 // PreFlightCheck runs hardware and system configuration checks on a node before RKE2 installation

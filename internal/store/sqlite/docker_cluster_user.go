@@ -180,6 +180,16 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*m
 	return u, nil
 }
 
+func (r *UserRepository) Update(ctx context.Context, u *model.User) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET username=?, password_hash=?, role=? WHERE id=?`,
+		u.Username, u.PasswordHash, u.Role, u.ID)
+	if err != nil {
+		return fmt.Errorf("update user %s: %w", u.ID, err)
+	}
+	return nil
+}
+
 func (r *UserRepository) List(ctx context.Context) ([]*model.User, error) {
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT id, username, password_hash, role, created_at FROM users ORDER BY created_at`)

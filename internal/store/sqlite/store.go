@@ -9,22 +9,23 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/michael/device_grid/internal/config"
 	"github.com/michael/device_grid/internal/store/repo"
 )
 
 type Store struct {
-	db          *sql.DB
-	nodeRepo    *NodeRepository
-	taskRepo    *DeployTaskRepository
-	resultRepo  *DeployResultRepository
+	db            *sql.DB
+	nodeRepo      *NodeRepository
+	taskRepo      *DeployTaskRepository
+	resultRepo    *DeployResultRepository
 	containerRepo *ContainerRepository
-	clusterRepo *ClusterRepository
-	userRepo    *UserRepository
+	clusterRepo   *ClusterRepository
+	userRepo      *UserRepository
 }
 
 func init() {
-	repo.Register("sqlite", func(ctx context.Context) (repo.Repositories, error) {
-		return New(ctx, "./data/device_grid.db")
+	repo.Register("sqlite", func(ctx context.Context, dbCfg config.DatabaseConfig) (repo.Repositories, error) {
+		return New(ctx, dbCfg.SQLite.Path)
 	})
 }
 
@@ -61,12 +62,12 @@ func New(ctx context.Context, dbPath string) (*Store, error) {
 	return s, nil
 }
 
-func (s *Store) Nodes() repo.NodeRepository         { return s.nodeRepo }
-func (s *Store) DeployTasks() repo.DeployTaskRepository { return s.taskRepo }
+func (s *Store) Nodes() repo.NodeRepository                 { return s.nodeRepo }
+func (s *Store) DeployTasks() repo.DeployTaskRepository     { return s.taskRepo }
 func (s *Store) DeployResults() repo.DeployResultRepository { return s.resultRepo }
-func (s *Store) Containers() repo.ContainerRepository { return s.containerRepo }
-func (s *Store) Clusters() repo.ClusterRepository    { return s.clusterRepo }
-func (s *Store) Users() repo.UserRepository          { return s.userRepo }
+func (s *Store) Containers() repo.ContainerRepository       { return s.containerRepo }
+func (s *Store) Clusters() repo.ClusterRepository           { return s.clusterRepo }
+func (s *Store) Users() repo.UserRepository                 { return s.userRepo }
 
 func (s *Store) Close() error {
 	return s.db.Close()

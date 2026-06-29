@@ -55,6 +55,7 @@ type Router struct {
 	corsOrigins  []string
 	alertMgr     *node.AlertManager
 	cronSched    *node.CronScheduler
+	deployEngine *deploy.Engine
 }
 
 func NewRouter(
@@ -80,11 +81,16 @@ func NewRouter(
 		network:      network,
 		alertMgr:     alertMgr,
 		cronSched:    cronSched,
+		deployEngine: deploy.NewEngine(repos, transportMgr, hub),
 	}
 }
 
 func (r *Router) SetCORSOrigins(origins []string) {
 	r.corsOrigins = origins
+}
+
+func (r *Router) SetDeployMaxConcurrency(n int) {
+	r.deployEngine.SetMaxConcurrency(n)
 }
 
 func (r *Router) Setup(mode string) *gin.Engine {
@@ -99,20 +105,20 @@ func (r *Router) Setup(mode string) *gin.Engine {
 	}))
 	engine.Use(AuditLog())
 
-	if mode == "debug" {
-		origins := []string{"http://localhost:5173", "http://localhost:4173"}
-		if len(r.corsOrigins) > 0 {
-			origins = r.corsOrigins
-		}
-		engine.Use(cors.New(cors.Config{
-			AllowOrigins:     origins,
-			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-			ExposeHeaders:    []string{"Content-Length"},
-			AllowCredentials: true,
-			MaxAge:           12 * time.Hour,
-		}))
+	origins := r.corsOrigins
+	if len(origins) == 0 {
+		origins = []string{"http://localhost:5173", "http://localhost:4173"}
 	}
+	// In release mode, CORS is required (no wildcard) — the operator must list allowed origins.
+	// In debug mode, empty origins → permissive defaults from above.
+	engine.Use(cors.New(cors.Config{
+		AllowOrigins:     origins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	engine.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -369,7 +375,7 @@ func (r *Router) registerDockerRoutes(rg *gin.RouterGroup) {
 }
 
 func (r *Router) registerDeployRoutes(rg *gin.RouterGroup) {
-	h := NewDeployHandler(r.repos, deploy.NewEngine(r.repos, r.transport, r.hub))
+	h := NewDeployHandler(r.repos, r.deployEngine)
 	deploy := rg.Group("/deploys")
 	{
 		deploy.GET("", h.List)
@@ -450,5 +456,3 @@ func (r *Router) registerCronRoutes(rg *gin.RouterGroup) {
 		cron.POST("/:tid/toggle", ch.Toggle)
 	}
 }
-
-

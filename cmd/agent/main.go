@@ -55,12 +55,13 @@ func main() {
 func connectAndRun(serverAddr, nodeID, nodeName string, interval int, caCertPath string, insecure bool) error {
 	var tlsConfig *tls.Config
 
-	if insecure || caCertPath == "" {
-		// Development mode: skip verification
+	if insecure {
+		// Operator explicitly opted in to insecure mode (dev only)
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
-		if insecure {
-			slog.Warn("running in insecure mode (TLS verification disabled)")
-		}
+		slog.Warn("running in insecure mode (TLS verification disabled)")
+	} else if caCertPath == "" {
+		// Hard fail rather than silently fall back to insecure verification
+		return fmt.Errorf("CA certificate required (use --ca-cert or pass --insecure for dev)")
 	} else {
 		// Production: load CA cert for mTLS
 		caCert, err := os.ReadFile(caCertPath)
@@ -72,9 +73,9 @@ func connectAndRun(serverAddr, nodeID, nodeName string, interval int, caCertPath
 			return fmt.Errorf("failed to parse CA certificate")
 		}
 		tlsConfig = &tls.Config{
-			RootCAs:            caPool,
-			ServerName:         extractHost(serverAddr),
-			MinVersion:         tls.VersionTLS13,
+			RootCAs:    caPool,
+			ServerName: extractHost(serverAddr),
+			MinVersion: tls.VersionTLS13,
 		}
 		slog.Info("mTLS enabled", "ca_cert", caCertPath)
 	}

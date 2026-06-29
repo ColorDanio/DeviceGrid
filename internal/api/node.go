@@ -34,13 +34,13 @@ func NewNodeHandler(repos repo.Repositories, enc *crypto.Encryptor, tm *transpor
 }
 
 type createNodeRequest struct {
-	Name      string   `json:"name" binding:"required"`
-	Host      string   `json:"host" binding:"required"`
-	Port      int      `json:"port"`
-	Username  string   `json:"username"`
-	Password  string   `json:"password"`
-	PrivateKey string  `json:"private_key"`
-	Tags      []string `json:"tags"`
+	Name       string   `json:"name" binding:"required"`
+	Host       string   `json:"host" binding:"required"`
+	Port       int      `json:"port"`
+	Username   string   `json:"username"`
+	Password   string   `json:"password"`
+	PrivateKey string   `json:"private_key"`
+	Tags       []string `json:"tags"`
 }
 
 func (h *NodeHandler) List(c *gin.Context) {
@@ -144,13 +144,13 @@ func (h *NodeHandler) Update(c *gin.Context) {
 	}
 
 	var req struct {
-		Name      *string  `json:"name"`
-		Host      *string  `json:"host"`
-		Port      *int     `json:"port"`
-		Username  *string  `json:"username"`
-		Password  *string  `json:"password"`
-		PrivateKey *string `json:"private_key"`
-		Tags      []string `json:"tags"`
+		Name       *string  `json:"name"`
+		Host       *string  `json:"host"`
+		Port       *int     `json:"port"`
+		Username   *string  `json:"username"`
+		Password   *string  `json:"password"`
+		PrivateKey *string  `json:"private_key"`
+		Tags       []string `json:"tags"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		BadRequest(c, "invalid request: "+err.Error())
@@ -400,15 +400,15 @@ systemctl is-active devicegrid-agent
 	}
 
 	OK(c, gin.H{
-		"node_id":   nodeID,
-		"name":      node.Name,
-		"arch":      agentArch,
-		"binary":    agentPath,
-		"server":    fmt.Sprintf("%s:9090", serverHost),
-		"status":    status,
-		"active":    active,
-		"output":    result.Stdout,
-		"message":   fmt.Sprintf("Agent 已部署到 %s (架构: %s, systemd: %s)", node.Name, arch, active),
+		"node_id": nodeID,
+		"name":    node.Name,
+		"arch":    agentArch,
+		"binary":  agentPath,
+		"server":  fmt.Sprintf("%s:9090", serverHost),
+		"status":  status,
+		"active":  active,
+		"output":  result.Stdout,
+		"message": fmt.Sprintf("Agent 已部署到 %s (架构: %s, systemd: %s)", node.Name, arch, active),
 	})
 }
 

@@ -46,10 +46,10 @@ func (h *RKE2Handler) Get(c *gin.Context) {
 }
 
 type createClusterRequest struct {
-	Name       string `json:"name" binding:"required"`
-	Version    string `json:"version"`
-	ServerNode string `json:"server_node" binding:"required"`
-	AgentNodes []string `json:"agent_nodes"`
+	Name       string             `json:"name" binding:"required"`
+	Version    string             `json:"version"`
+	ServerNode string             `json:"server_node" binding:"required"`
+	AgentNodes []string           `json:"agent_nodes"`
 	Config     rke2.ClusterConfig `json:"config"`
 }
 

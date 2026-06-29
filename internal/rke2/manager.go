@@ -21,22 +21,22 @@ func NewManager(repos repo.Repositories, tm *transport.Manager) *Manager {
 }
 
 type ClusterConfig struct {
-	ServerURL            string
-	Token                string
-	Version              string
-	NodeName             string
-	NodeLabels           []string
-	NodeTaints           []string
-	CNI                  string
-	ClusterCIDR          string
-	ServiceCIDR          string
-	Disable              []string
-	ETCDSnapshots       bool
+	ServerURL     string
+	Token         string
+	Version       string
+	NodeName      string
+	NodeLabels    []string
+	NodeTaints    []string
+	CNI           string
+	ClusterCIDR   string
+	ServiceCIDR   string
+	Disable       []string
+	ETCDSnapshots bool
 	// Infrastructure
-	SystemDefaultRegistry string   // mirror registry, auto-detected
-	Proxy                 string   // HTTP_PROXY
-	NoProxy               string   // NO_PROXY
-	InstallMirror         string   // mirror for get.rke2.io script
+	SystemDefaultRegistry string // mirror registry, auto-detected
+	Proxy                 string // HTTP_PROXY
+	NoProxy               string // NO_PROXY
+	InstallMirror         string // mirror for get.rke2.io script
 }
 
 // DefaultServerConfig generates RKE2 server config.yaml
@@ -159,7 +159,12 @@ func (m *Manager) buildInstallScript(installType, configContent string, cfg Clus
 	}
 	installCmd = fmt.Sprintf("%s | %s INSTALL_RKE2_TYPE=%s %s sh -",
 		installCmd, versionFlag, installType,
-		func() string { if versionFlag != "" { return "" }; return "" }())
+		func() string {
+			if versionFlag != "" {
+				return ""
+			}
+			return ""
+		}())
 
 	// Fix: construct install command properly
 	if versionFlag != "" {

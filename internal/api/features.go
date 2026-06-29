@@ -91,10 +91,10 @@ func (h *CompareHandler) Compare(c *gin.Context) {
 	}
 
 	OK(c, gin.H{
-		"node_a":     node1,
-		"node_b":     node2,
-		"metrics_a":  metrics1,
-		"metrics_b":  metrics2,
+		"node_a":    node1,
+		"node_b":    node2,
+		"metrics_a": metrics1,
+		"metrics_b": metrics2,
 	})
 }
 

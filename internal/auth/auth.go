@@ -26,9 +26,9 @@ func NewJWTManager(secret string, expire time.Duration) *JWTManager {
 }
 
 type Claims struct {
-	UserID   string          `json:"user_id"`
-	Username string          `json:"username"`
-	Role     model.UserRole  `json:"role"`
+	UserID   string         `json:"user_id"`
+	Username string         `json:"username"`
+	Role     model.UserRole `json:"role"`
 	jwt.RegisteredClaims
 }
 

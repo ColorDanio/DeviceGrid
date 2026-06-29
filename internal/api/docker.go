@@ -12,9 +12,9 @@ import (
 )
 
 type DockerHandler struct {
-	repos   repo.Repositories
-	docker  *docker.Manager
-	hub     hubBroadcaster
+	repos  repo.Repositories
+	docker *docker.Manager
+	hub    hubBroadcaster
 }
 
 type hubBroadcaster interface {

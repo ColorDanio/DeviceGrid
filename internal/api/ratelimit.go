@@ -8,82 +8,92 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type rateLimiter struct {
-	mu       sync.Mutex
-	requests map[string][]time.Time
-	limit    int
-	window   time.Duration
+// RateLimiter implements a simple in-memory token-bucket per key (IP + endpoint).
+// Suitable for protecting auth endpoints against brute force.
+type RateLimiter struct {
+	mu      sync.Mutex
+	buckets map[string]*bucket
+	rate    float64 // tokens per second
+	burst   float64 // max bucket size
+	cleanup time.Duration
 }
 
-func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-	rl := &rateLimiter{
-		requests: make(map[string][]time.Time),
-		limit:    limit,
-		window:   window,
+type bucket struct {
+	tokens   float64
+	lastFill time.Time
+}
+
+func NewRateLimiter(rate float64, burst int) *RateLimiter {
+	rl := &RateLimiter{
+		buckets: make(map[string]*bucket),
+		rate:    rate,
+		burst:   float64(burst),
+		cleanup: 10 * time.Minute,
 	}
-	go rl.cleanup()
+	go rl.janitor()
 	return rl
 }
 
-func (rl *rateLimiter) allow(key string) bool {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-
-	now := time.Now()
-	cutoff := now.Add(-rl.window)
-
-	// Filter out expired entries
-	var valid []time.Time
-	for _, t := range rl.requests[key] {
-		if t.After(cutoff) {
-			valid = append(valid, t)
-		}
-	}
-
-	if len(valid) >= rl.limit {
-		rl.requests[key] = valid
-		return false
-	}
-
-	rl.requests[key] = append(valid, now)
-	return true
-}
-
-func (rl *rateLimiter) cleanup() {
-	ticker := time.NewTicker(time.Minute)
+func (rl *RateLimiter) janitor() {
+	ticker := time.NewTicker(rl.cleanup)
 	defer ticker.Stop()
 	for range ticker.C {
 		rl.mu.Lock()
-		cutoff := time.Now().Add(-rl.window)
-		for k, v := range rl.requests {
-			var valid []time.Time
-			for _, t := range v {
-				if t.After(cutoff) {
-					valid = append(valid, t)
-				}
-			}
-			if len(valid) == 0 {
-				delete(rl.requests, k)
-			} else {
-				rl.requests[k] = valid
+		cutoff := time.Now().Add(-rl.cleanup)
+		for k, b := range rl.buckets {
+			if b.lastFill.Before(cutoff) {
+				delete(rl.buckets, k)
 			}
 		}
 		rl.mu.Unlock()
 	}
 }
 
-// RateLimit middleware — limits requests per IP
-func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
-	rl := newRateLimiter(limit, window)
+func (rl *RateLimiter) allow(key string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	b, ok := rl.buckets[key]
+	if !ok {
+		b = &bucket{tokens: rl.burst, lastFill: now}
+		rl.buckets[key] = b
+	}
+
+	elapsed := now.Sub(b.lastFill).Seconds()
+	b.tokens += elapsed * rl.rate
+	if b.tokens > rl.burst {
+		b.tokens = rl.burst
+	}
+	b.lastFill = now
+
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+
+// Middleware returns a gin middleware that rate-limits by client IP + path.
+func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
-		if !rl.allow(ip) {
+		key := c.ClientIP() + ":" + c.FullPath()
+		if !rl.allow(key) {
+			c.Header("Retry-After", "60")
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, APIResponse{
 				Code:    429,
-				Message: "请求过于频繁，请稍后重试",
+				Message: "too many requests, slow down",
 			})
 			return
 		}
 		c.Next()
 	}
+}
+
+// RateLimit returns a gin middleware that allows `count` requests per IP+path per `window`.
+// Each IP+path combination gets its own token bucket. Implemented as a simple
+// in-memory limiter suitable for protecting auth endpoints against brute force.
+func RateLimit(count int, window time.Duration) gin.HandlerFunc {
+	limiter := NewRateLimiter(float64(count)/window.Seconds(), count)
+	return limiter.Middleware()
 }

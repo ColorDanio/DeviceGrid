@@ -3,6 +3,8 @@ package repo
 import (
 	"context"
 	"fmt"
+
+	"github.com/michael/device_grid/internal/config"
 )
 
 type Repositories interface {
@@ -16,7 +18,10 @@ type Repositories interface {
 	Ping(ctx context.Context) error
 }
 
-type Factory func(ctx context.Context) (Repositories, error)
+// Factory creates a Repositories instance from a database config.
+// The driver implementation reads its own sub-config (SQLiteConfig, MongoDBConfig)
+// and is responsible for opening the underlying connection.
+type Factory func(ctx context.Context, dbCfg config.DatabaseConfig) (Repositories, error)
 
 var factories = map[string]Factory{}
 
@@ -24,10 +29,10 @@ func Register(driver string, f Factory) {
 	factories[driver] = f
 }
 
-func New(ctx context.Context, driver string) (Repositories, error) {
-	f, ok := factories[driver]
+func New(ctx context.Context, dbCfg config.DatabaseConfig) (Repositories, error) {
+	f, ok := factories[dbCfg.Driver]
 	if !ok {
-		return nil, fmt.Errorf("unsupported database driver: %s", driver)
+		return nil, fmt.Errorf("unsupported database driver: %s", dbCfg.Driver)
 	}
-	return f(ctx)
+	return f(ctx, dbCfg)
 }

@@ -152,10 +152,10 @@ func (s *Server) Download(req *agentpb.DownloadRequest, stream agentpb.AgentServ
 
 func (s *Server) SystemInfo(ctx context.Context, req *agentpb.Empty) (*agentpb.SystemInfoResponse, error) {
 	info := &agentpb.SystemInfoResponse{
-		Hostname:   hostname(),
-		Os:         runtime.GOOS,
-		Arch:       runtime.GOARCH,
-		CpuCores:   uint64(runtime.NumCPU()),
+		Hostname: hostname(),
+		Os:       runtime.GOOS,
+		Arch:     runtime.GOARCH,
+		CpuCores: uint64(runtime.NumCPU()),
 	}
 
 	osRelease, _ := os.ReadFile("/etc/os-release")

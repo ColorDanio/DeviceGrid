@@ -191,7 +191,12 @@ func RegisterPendingFileList(reqID string) chan *agentpb.FileListResponse {
 	pendingFilesMu.Lock()
 	pendingFiles[reqID] = ch
 	pendingFilesMu.Unlock()
-	go func() { time.Sleep(60 * time.Second); pendingFilesMu.Lock(); delete(pendingFiles, reqID); pendingFilesMu.Unlock() }()
+	go func() {
+		time.Sleep(60 * time.Second)
+		pendingFilesMu.Lock()
+		delete(pendingFiles, reqID)
+		pendingFilesMu.Unlock()
+	}()
 	return ch
 }
 
@@ -212,7 +217,12 @@ func RegisterPendingFileData(reqID string) chan *agentpb.FileData {
 	pendingFileDataMu.Lock()
 	pendingFileData[reqID] = ch
 	pendingFileDataMu.Unlock()
-	go func() { time.Sleep(5 * time.Minute); pendingFileDataMu.Lock(); delete(pendingFileData, reqID); pendingFileDataMu.Unlock() }()
+	go func() {
+		time.Sleep(5 * time.Minute)
+		pendingFileDataMu.Lock()
+		delete(pendingFileData, reqID)
+		pendingFileDataMu.Unlock()
+	}()
 	return ch
 }
 

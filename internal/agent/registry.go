@@ -8,11 +8,11 @@ import (
 )
 
 type AgentConnection struct {
-	NodeID    string
-	NodeName  string
-	Stream    AgentStream
-	LastSeen  time.Time
-	Cancel    context.CancelFunc
+	NodeID   string
+	NodeName string
+	Stream   AgentStream
+	LastSeen time.Time
+	Cancel   context.CancelFunc
 }
 
 type AgentStream interface {

@@ -152,6 +152,20 @@ func (r *UserRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (r *UserRepository) Update(ctx context.Context, u *model.User) error {
+	_, err := r.coll.UpdateOne(ctx, bson.M{"_id": u.ID}, bson.M{
+		"$set": bson.M{
+			"username":      u.Username,
+			"password_hash": u.PasswordHash,
+			"role":          u.Role,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("update user %s: %w", u.ID, err)
+	}
+	return nil
+}
+
 func timeNow() time.Time {
 	return time.Now()
 }

@@ -57,9 +57,9 @@ func (m *Manager) Install(ctx context.Context, nodeID string, opts InstallOption
 }
 
 type InstallOptions struct {
-	Mirror       string
-	DataRoot     string
-	InsecureReg  []string
+	Mirror      string
+	DataRoot    string
+	InsecureReg []string
 }
 
 func (m *Manager) buildInstallScript(opts InstallOptions) string {
@@ -130,12 +130,12 @@ echo "Docker uninstalled successfully"
 }
 
 type ContainerInfo struct {
-	ID     string            `json:"id"`
-	Name   string            `json:"name"`
-	Image  string            `json:"image"`
-	Status string            `json:"status"`
-	State  string            `json:"state"`
-	Ports  []PortInfo        `json:"ports"`
+	ID     string     `json:"id"`
+	Name   string     `json:"name"`
+	Image  string     `json:"image"`
+	Status string     `json:"status"`
+	State  string     `json:"state"`
+	Ports  []PortInfo `json:"ports"`
 }
 
 type PortInfo struct {
@@ -164,22 +164,22 @@ func (m *Manager) ListContainers(ctx context.Context, nodeID string, all bool) (
 		if len(parts) < 5 {
 			continue
 		}
-	c := ContainerInfo{
-		ID:     parts[0],
-		Name:   parts[1],
-		Image:  parts[2],
-		Status: parts[3],
-		State:  parts[4],
-	}
-	if len(parts) > 5 && parts[5] != "" {
-		for _, p := range strings.Split(parts[5], ", ") {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				c.Ports = append(c.Ports, PortInfo{HostPort: p, ContainerPort: p})
+		c := ContainerInfo{
+			ID:     parts[0],
+			Name:   parts[1],
+			Image:  parts[2],
+			Status: parts[3],
+			State:  parts[4],
+		}
+		if len(parts) > 5 && parts[5] != "" {
+			for _, p := range strings.Split(parts[5], ", ") {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					c.Ports = append(c.Ports, PortInfo{HostPort: p, ContainerPort: p})
+				}
 			}
 		}
-	}
-	containers = append(containers, c)
+		containers = append(containers, c)
 	}
 	return containers, nil
 }
@@ -344,11 +344,11 @@ func (m *Manager) ComposeDown(ctx context.Context, nodeID, projectName string) (
 }
 
 type NetworkInfo struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Driver   string `json:"driver"`
-	Scope    string `json:"scope"`
-	Subnet   string `json:"subnet"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Driver string `json:"driver"`
+	Scope  string `json:"scope"`
+	Subnet string `json:"subnet"`
 }
 
 func (m *Manager) ListNetworks(ctx context.Context, nodeID string) ([]NetworkInfo, error) {

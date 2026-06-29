@@ -45,15 +45,15 @@ const (
 )
 
 type DeployResult struct {
-	ID       string            `json:"id" bson:"_id"`
-	TaskID   string            `json:"task_id" bson:"task_id"`
-	NodeID   string            `json:"node_id" bson:"node_id"`
-	NodeName string            `json:"node_name" bson:"node_name"`
-	Status   DeployResultStatus `json:"status" bson:"status"`
-	ExitCode int               `json:"exit_code" bson:"exit_code"`
-	Output   string            `json:"output" bson:"output"`
-	Error    string            `json:"error" bson:"error"`
-	Duration int64             `json:"duration_ms" bson:"duration_ms"`
-	StartedAt time.Time        `json:"started_at" bson:"started_at"`
-	FinishedAt *time.Time      `json:"finished_at,omitempty" bson:"finished_at,omitempty"`
+	ID         string             `json:"id" bson:"_id"`
+	TaskID     string             `json:"task_id" bson:"task_id"`
+	NodeID     string             `json:"node_id" bson:"node_id"`
+	NodeName   string             `json:"node_name" bson:"node_name"`
+	Status     DeployResultStatus `json:"status" bson:"status"`
+	ExitCode   int                `json:"exit_code" bson:"exit_code"`
+	Output     string             `json:"output" bson:"output"`
+	Error      string             `json:"error" bson:"error"`
+	Duration   int64              `json:"duration_ms" bson:"duration_ms"`
+	StartedAt  time.Time          `json:"started_at" bson:"started_at"`
+	FinishedAt *time.Time         `json:"finished_at,omitempty" bson:"finished_at,omitempty"`
 }

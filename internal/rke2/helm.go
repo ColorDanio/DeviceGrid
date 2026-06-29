@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	helmNameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$`)
+	helmNameRe  = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._\-/]*$`)
 	helmValueRe = regexp.MustCompile(`^[a-zA-Z0-9._\-/=]+$`)
 )
 

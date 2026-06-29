@@ -42,12 +42,12 @@ func (cm *CertManager) EnsureCA() error {
 
 	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	tmpl := &x509.Certificate{
-		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: "DeviceGrid CA", Organization: []string{"DeviceGrid"}},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
-		IsCA:         true,
-		KeyUsage:     x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: "DeviceGrid CA", Organization: []string{"DeviceGrid"}},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 		BasicConstraintsValid: true,
 	}
 

@@ -13,12 +13,14 @@ import (
 )
 
 type MetricsCache struct {
-	transport *transport.Manager
-	repos     repo.Repositories
-	hub       *ws.Hub
-	mu        sync.RWMutex
-	cache     map[string]*CachedMetrics
-	cancel    context.CancelFunc
+	transport   *transport.Manager
+	repos       repo.Repositories
+	hub         *ws.Hub
+	mu          sync.RWMutex
+	cache       map[string]*CachedMetrics
+	cancel      context.CancelFunc
+	interval    time.Duration
+	concurrency int
 }
 
 type CachedMetrics struct {
@@ -28,18 +30,37 @@ type CachedMetrics struct {
 
 func NewMetricsCache(tm *transport.Manager, repos repo.Repositories, hub *ws.Hub) *MetricsCache {
 	return &MetricsCache{
-		transport: tm,
-		repos:     repos,
-		hub:       hub,
-		cache:     make(map[string]*CachedMetrics),
+		transport:   tm,
+		repos:       repos,
+		hub:         hub,
+		cache:       make(map[string]*CachedMetrics),
+		interval:    15 * time.Second,
+		concurrency: 3,
 	}
+}
+
+func (mc *MetricsCache) SetInterval(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	mc.interval = d
+}
+
+func (mc *MetricsCache) SetConcurrency(n int) {
+	if n < 1 {
+		n = 1
+	}
+	if n > 20 {
+		n = 20
+	}
+	mc.concurrency = n
 }
 
 func (mc *MetricsCache) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	mc.cancel = cancel
 	go mc.run(ctx)
-	slog.Info("metrics cache started", "interval", "15s")
+	slog.Info("metrics cache started", "interval", mc.interval, "concurrency", mc.concurrency)
 }
 
 func (mc *MetricsCache) Stop() {
@@ -53,7 +74,7 @@ func (mc *MetricsCache) run(ctx context.Context) {
 	time.Sleep(2 * time.Second)
 	mc.fetchAll(ctx)
 
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(mc.interval)
 	defer ticker.Stop()
 
 	for {
@@ -72,8 +93,7 @@ func (mc *MetricsCache) fetchAll(ctx context.Context) {
 		return
 	}
 
-	// Use semaphore to limit concurrency (max 3 parallel SSH connections)
-	sem := make(chan struct{}, 3)
+	sem := make(chan struct{}, mc.concurrency)
 	var wg sync.WaitGroup
 	for _, node := range nodes {
 		if node.Status != model.NodeStatusOnline {

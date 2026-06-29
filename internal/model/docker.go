@@ -43,11 +43,11 @@ const (
 )
 
 type Image struct {
-	ID        string    `json:"id" bson:"_id"`
-	NodeID    string    `json:"node_id" bson:"node_id"`
-	Tags      []string  `json:"tags" bson:"tags"`
-	Size      int64     `json:"size" bson:"size"`
-	Created   time.Time `json:"created" bson:"created"`
+	ID      string    `json:"id" bson:"_id"`
+	NodeID  string    `json:"node_id" bson:"node_id"`
+	Tags    []string  `json:"tags" bson:"tags"`
+	Size    int64     `json:"size" bson:"size"`
+	Created time.Time `json:"created" bson:"created"`
 }
 
 type ComposeProject struct {

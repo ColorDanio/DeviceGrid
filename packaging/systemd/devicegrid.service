@@ -1,0 +1,49 @@
+[Unit]
+Description=DeviceGrid — server fleet management
+Documentation=https://github.com/michael/device_grid
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+# Adjust these paths to match your install layout (default: /opt/devicegrid).
+ExecStart=/opt/devicegrid/devicegrid-server
+WorkingDirectory=/opt/devicegrid
+EnvironmentFile=-/etc/devicegrid/devicegrid.env
+Restart=on-failure
+RestartSec=5s
+
+# Hardening — drop privileges, restrict filesystems, deny privilege escalation.
+# Adjust User/Group to a dedicated system account (e.g. devicegrid:devicegrid).
+User=devicegrid
+Group=devicegrid
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/devicegrid /etc/devicegrid
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+MemoryDenyWriteExecute=true
+LimitNOFILE=65536
+LimitNPROC=512
+
+# Logging — direct stdout/stderr to journald.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=devicegrid
+
+[Install]
+WantedBy=multi-user.target

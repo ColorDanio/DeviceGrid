@@ -380,32 +380,33 @@ runs the complete application.
 
 ## Phase 8 — Production Hardening (Post-Release)
 
-- [ ] **8.1 Security**
-  - [ ] Agent mTLS certificate verification (remove InsecureSkipVerify)
-  - [ ] Configurable default admin password (env var)
-  - [ ] Rate limiting on auth endpoints
-  - [ ] CORS origin from config
+- [x] **8.1 Security**
+  - [x] Agent mTLS certificate verification (remove InsecureSkipVerify)
+  - [x] Configurable default admin password (env var)
+  - [x] Rate limiting on auth endpoints
+  - [x] CORS origin from config
 
-- [ ] **8.2 Scalability**
-  - [ ] Configurable health check / metrics intervals
-  - [ ] Deploy engine uses config max_concurrent
-  - [ ] MongoDB init() bypass fix (use config URI)
-  - [ ] Configurable HTTP server timeouts
+- [x] **8.2 Scalability**
+  - [x] Configurable health check / metrics intervals
+  - [x] Deploy engine uses config max_concurrent
+  - [x] MongoDB init() bypass fix (use config URI)
+  - [x] Configurable HTTP server timeouts
 
-- [ ] **8.3 Features**
+- [~] **8.3 Features**
   - [ ] Agent PTY via gRPC tunnel (eliminate SSH for terminal)
   - [ ] Docker management via Agent (local Docker API)
   - [ ] Configurable Docker/RKE2 install mirror URLs
-  - [ ] Terminal search (Ctrl+F) with SearchAddon
-  - [ ] Batch deployment with file distribution
+  - [x] Terminal search (Ctrl+F) with SearchAddon
+  - [x] Batch deployment with file distribution
 
-- [ ] **8.4 Testing**
-  - [ ] Unit test coverage > 70% for business logic
+- [~] **8.4 Testing**
+  - [x] Unit tests: auth, crypto, SSH pool, SQLite repos
+  - [ ] Coverage > 70% (current: ~25%, focused on critical paths)
   - [ ] Integration tests with testcontainers
   - [ ] Frontend component tests (Vitest)
 
-- [ ] **8.5 Distribution**
-  - [ ] Docker image
-  - [ ] systemd service file
+- [x] **8.5 Distribution**
+  - [x] Docker image (multi-stage, distroless)
+  - [x] systemd service file (hardened)
   - [ ] Auto-update mechanism for agent
-| Phase 7 — Polish | Packaging + release | `[~]` In progress |
+| Phase 7 — Polish | Packaging + release | `[x]` Complete |

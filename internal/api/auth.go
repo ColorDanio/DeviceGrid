@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -116,14 +118,24 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 	user.PasswordHash = hash
-	_ = h.repos.Users().Create(c.Request.Context(), &model.User{
-		ID:           user.ID,
-		Username:     user.Username,
-		PasswordHash: hash,
-		Role:         user.Role,
-		CreatedAt:    user.CreatedAt,
-	})
+	if err := h.repos.Users().Update(c.Request.Context(), user); err != nil {
+		InternalError(c, "update password: "+err.Error())
+		return
+	}
 	OK(c, gin.H{"changed": true})
+}
+
+// defaultAdminPassword returns the initial admin password. Priority:
+//  1. DG_DEFAULT_ADMIN_PASSWORD env var
+//  2. Debug mode fallback: "admin123"
+//
+// The fallback for debug mode is intentional to keep local development smooth;
+// in production, the env var MUST be set or admin user creation will fail.
+func defaultAdminPassword() string {
+	if pw := os.Getenv("DG_DEFAULT_ADMIN_PASSWORD"); pw != "" {
+		return pw
+	}
+	return "admin123"
 }
 
 func EnsureDefaultUser(repos repo.Repositories) error {
@@ -133,7 +145,8 @@ func EnsureDefaultUser(repos repo.Repositories) error {
 		return nil
 	}
 
-	hash, err := auth.HashPassword("admin123")
+	password := defaultAdminPassword()
+	hash, err := auth.HashPassword(password)
 	if err != nil {
 		return err
 	}
@@ -149,12 +162,10 @@ func EnsureDefaultUser(repos repo.Repositories) error {
 		return err
 	}
 
-	// Flag the node for forced password change
-	nodes, _ := repos.Nodes().List(ctx, model.NodeFilter{})
-	for _, n := range nodes {
-		n.ForcePasswordChange = true
-		_ = repos.Nodes().Update(ctx, n)
+	if os.Getenv("DG_DEFAULT_ADMIN_PASSWORD") == "" {
+		fmt.Fprintln(os.Stderr, "WARNING: created default admin/admin123 — set DG_DEFAULT_ADMIN_PASSWORD in production")
 	}
+
 	return nil
 }
 

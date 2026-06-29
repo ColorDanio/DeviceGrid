@@ -17,14 +17,21 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Agent    AgentConfig    `mapstructure:"agent"`
 	SSH      SSHConfig      `mapstructure:"ssh"`
+	Node     NodeConfig     `mapstructure:"node"`
 	Deploy   DeployConfig   `mapstructure:"deploy"`
 	Network  NetworkConfig  `mapstructure:"network"`
 }
 
 type ServerConfig struct {
-	Host string `mapstructure:"host"`
-	Port int    `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Host        string   `mapstructure:"host"`
+	Port        int      `mapstructure:"port"`
+	Mode        string   `mapstructure:"mode"`
+	CORSOrigins []string `mapstructure:"cors_origins"`
+	// HTTP server timeouts
+	ReadTimeout     time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout    time.Duration `mapstructure:"write_timeout"`
+	IdleTimeout     time.Duration `mapstructure:"idle_timeout"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
 type AuthConfig struct {
@@ -37,9 +44,9 @@ type CryptoConfig struct {
 }
 
 type DatabaseConfig struct {
-	Driver  string         `mapstructure:"driver"`
-	SQLite  SQLiteConfig   `mapstructure:"sqlite"`
-	MongoDB MongoDBConfig  `mapstructure:"mongodb"`
+	Driver  string        `mapstructure:"driver"`
+	SQLite  SQLiteConfig  `mapstructure:"sqlite"`
+	MongoDB MongoDBConfig `mapstructure:"mongodb"`
 }
 
 type SQLiteConfig struct {
@@ -67,10 +74,16 @@ type AgentConfig struct {
 }
 
 type SSHConfig struct {
-	KeyAlgorithm     string        `mapstructure:"key_algorithm"`
-	ConnectTimeout   time.Duration `mapstructure:"connect_timeout"`
+	KeyAlgorithm      string        `mapstructure:"key_algorithm"`
+	ConnectTimeout    time.Duration `mapstructure:"connect_timeout"`
 	KeepaliveInterval time.Duration `mapstructure:"keepalive_interval"`
-	MaxConnections   int           `mapstructure:"max_connections"`
+	MaxConnections    int           `mapstructure:"max_connections"`
+}
+
+type NodeConfig struct {
+	HealthCheckInterval time.Duration `mapstructure:"health_check_interval"`
+	MetricsInterval     time.Duration `mapstructure:"metrics_interval"`
+	MetricsConcurrency  int           `mapstructure:"metrics_concurrency"`
 }
 
 type DeployConfig struct {
@@ -79,12 +92,12 @@ type DeployConfig struct {
 }
 
 type NetworkConfig struct {
-	Environment     string `mapstructure:"environment"`      // "public" (default) | "internal"
-	EnableGeoLookup bool   `mapstructure:"enable_geo"`       // IP geo lookup (auto: true for public, false for internal)
-	EnableStreamingCheck bool `mapstructure:"enable_streaming"` // Streaming unlock detection
-	EnableAICheck   bool   `mapstructure:"enable_ai"`        // AI service availability
-	EnableConnectivityTest bool `mapstructure:"enable_connectivity"` // Global connectivity test
-	EnableReturnRoute bool  `mapstructure:"enable_route"`    // China ISP return route test
+	Environment            string `mapstructure:"environment"`         // "public" (default) | "internal"
+	EnableGeoLookup        bool   `mapstructure:"enable_geo"`          // IP geo lookup (auto: true for public, false for internal)
+	EnableStreamingCheck   bool   `mapstructure:"enable_streaming"`    // Streaming unlock detection
+	EnableAICheck          bool   `mapstructure:"enable_ai"`           // AI service availability
+	EnableConnectivityTest bool   `mapstructure:"enable_connectivity"` // Global connectivity test
+	EnableReturnRoute      bool   `mapstructure:"enable_route"`        // China ISP return route test
 }
 
 func (n *NetworkConfig) IsInternal() bool { return n.Environment == "internal" }
@@ -146,6 +159,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 8080)
 	v.SetDefault("server.mode", "debug")
+	v.SetDefault("server.cors_origins", []string{"http://localhost:5173", "http://localhost:4173"})
+	v.SetDefault("server.read_timeout", "30s")
+	v.SetDefault("server.write_timeout", "30s")
+	v.SetDefault("server.idle_timeout", "120s")
+	v.SetDefault("server.shutdown_timeout", "15s")
 
 	v.SetDefault("auth.jwt_expire", "24h")
 
@@ -163,6 +181,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ssh.connect_timeout", "10s")
 	v.SetDefault("ssh.keepalive_interval", "30s")
 	v.SetDefault("ssh.max_connections", 50)
+
+	v.SetDefault("node.health_check_interval", "30s")
+	v.SetDefault("node.metrics_interval", "15s")
+	v.SetDefault("node.metrics_concurrency", 3)
 
 	v.SetDefault("deploy.max_concurrent", 20)
 	v.SetDefault("deploy.timeout", "30m")

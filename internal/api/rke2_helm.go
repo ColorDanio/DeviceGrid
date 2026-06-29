@@ -33,11 +33,11 @@ func (h *RKE2Handler) HelmInstall(c *gin.Context) {
 	}
 
 	var req struct {
-		RepoName    string            `json:"repo_name"`
-		RepoURL     string            `json:"repo_url"`
-		ChartName   string            `json:"chart_name" binding:"required"`
-		Namespace   string            `json:"namespace"`
-		Values      map[string]string `json:"values"`
+		RepoName  string            `json:"repo_name"`
+		RepoURL   string            `json:"repo_url"`
+		ChartName string            `json:"chart_name" binding:"required"`
+		Namespace string            `json:"namespace"`
+		Values    map[string]string `json:"values"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		BadRequest(c, "invalid request: "+err.Error())
@@ -83,8 +83,8 @@ func (h *RKE2Handler) InstallRancher(c *gin.Context) {
 	}
 
 	var req struct {
-		Hostname string `json:"hostname" binding:"required"`
-		Password string `json:"password"`
+		Hostname  string `json:"hostname" binding:"required"`
+		Password  string `json:"password"`
 		UseMirror bool   `json:"use_mirror"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {

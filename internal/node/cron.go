@@ -12,15 +12,15 @@ import (
 
 // CronTask defines a scheduled script execution task
 type CronTask struct {
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	NodeIDs    []string      `json:"node_ids"`
-	Script     string        `json:"script"`
-	Interval   time.Duration `json:"interval"`
-	Enabled    bool          `json:"enabled"`
-	CreatedAt  time.Time     `json:"created_at"`
-	LastRun    *time.Time    `json:"last_run,omitempty"`
-	NextRun    time.Time     `json:"next_run"`
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	NodeIDs   []string      `json:"node_ids"`
+	Script    string        `json:"script"`
+	Interval  time.Duration `json:"interval"`
+	Enabled   bool          `json:"enabled"`
+	CreatedAt time.Time     `json:"created_at"`
+	LastRun   *time.Time    `json:"last_run,omitempty"`
+	NextRun   time.Time     `json:"next_run"`
 }
 
 type CronScheduler struct {
@@ -92,7 +92,8 @@ func (cs *CronScheduler) executeTask(ctx context.Context, task *CronTask) {
 				return
 			}
 			// Drain the stream
-			for range stream {}
+			for range stream {
+			}
 		}(nodeID)
 	}
 

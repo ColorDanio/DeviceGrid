@@ -3,6 +3,7 @@
 /dist/
 /devicegrid-server
 /devicegrid-agent
+/server
 
 # Build artifacts
 /dist/

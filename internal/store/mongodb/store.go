@@ -9,23 +9,24 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/michael/device_grid/internal/config"
 	"github.com/michael/device_grid/internal/store/repo"
 )
 
 type Store struct {
-	client   *mongo.Client
-	db       *mongo.Database
-	nodeRepo *NodeRepository
-	taskRepo *DeployTaskRepository
-	resultRepo *DeployResultRepository
+	client        *mongo.Client
+	db            *mongo.Database
+	nodeRepo      *NodeRepository
+	taskRepo      *DeployTaskRepository
+	resultRepo    *DeployResultRepository
 	containerRepo *ContainerRepository
-	clusterRepo *ClusterRepository
-	userRepo *UserRepository
+	clusterRepo   *ClusterRepository
+	userRepo      *UserRepository
 }
 
 func init() {
-	repo.Register("mongodb", func(ctx context.Context) (repo.Repositories, error) {
-		return New(ctx, "mongodb://localhost:27017", "device_grid")
+	repo.Register("mongodb", func(ctx context.Context, dbCfg config.DatabaseConfig) (repo.Repositories, error) {
+		return New(ctx, dbCfg.MongoDB.URI, dbCfg.MongoDB.Database)
 	})
 }
 
@@ -89,12 +90,12 @@ func ensureIndexes(ctx context.Context, db *mongo.Database) error {
 	return nil
 }
 
-func (s *Store) Nodes() repo.NodeRepository              { return s.nodeRepo }
-func (s *Store) DeployTasks() repo.DeployTaskRepository   { return s.taskRepo }
+func (s *Store) Nodes() repo.NodeRepository                 { return s.nodeRepo }
+func (s *Store) DeployTasks() repo.DeployTaskRepository     { return s.taskRepo }
 func (s *Store) DeployResults() repo.DeployResultRepository { return s.resultRepo }
-func (s *Store) Containers() repo.ContainerRepository    { return s.containerRepo }
-func (s *Store) Clusters() repo.ClusterRepository         { return s.clusterRepo }
-func (s *Store) Users() repo.UserRepository               { return s.userRepo }
+func (s *Store) Containers() repo.ContainerRepository       { return s.containerRepo }
+func (s *Store) Clusters() repo.ClusterRepository           { return s.clusterRepo }
+func (s *Store) Users() repo.UserRepository                 { return s.userRepo }
 
 func (s *Store) Close() error {
 	return s.client.Disconnect(context.Background())

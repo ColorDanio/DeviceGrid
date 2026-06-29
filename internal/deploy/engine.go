@@ -24,30 +24,42 @@ func isValidPackageName(pkg string) bool {
 }
 
 type Engine struct {
-	repos     repo.Repositories
-	transport *transport.Manager
-	hub       *ws.Hub
-	mu        sync.Mutex
-	running   map[string]context.CancelFunc
+	repos          repo.Repositories
+	transport      *transport.Manager
+	hub            *ws.Hub
+	maxConcurrency int
+	mu             sync.Mutex
+	running        map[string]context.CancelFunc
 }
 
 func NewEngine(repos repo.Repositories, tm *transport.Manager, hub *ws.Hub) *Engine {
 	return &Engine{
-		repos:     repos,
-		transport: tm,
-		hub:       hub,
-		running:   make(map[string]context.CancelFunc),
+		repos:          repos,
+		transport:      tm,
+		hub:            hub,
+		running:        make(map[string]context.CancelFunc),
+		maxConcurrency: 20,
 	}
 }
 
+func (e *Engine) SetMaxConcurrency(n int) {
+	if n < 1 {
+		n = 1
+	}
+	if n > 200 {
+		n = 200
+	}
+	e.maxConcurrency = n
+}
+
 type CreateTaskRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Type        string `json:"type" binding:"required"`
+	Name        string   `json:"name" binding:"required"`
+	Type        string   `json:"type" binding:"required"`
 	NodeIDs     []string `json:"node_ids" binding:"required"`
-	Payload     string `json:"payload" binding:"required"`
-	Timeout     int    `json:"timeout"`
-	Concurrency int    `json:"concurrency"`
-	CreatedBy   string `json:"-"`
+	Payload     string   `json:"payload" binding:"required"`
+	Timeout     int      `json:"timeout"`
+	Concurrency int      `json:"concurrency"`
+	CreatedBy   string   `json:"-"`
 }
 
 func (e *Engine) CreateAndRun(ctx context.Context, req CreateTaskRequest) (*model.DeployTask, error) {
@@ -112,7 +124,7 @@ func (e *Engine) runTask(task *model.DeployTask) {
 
 	concurrency := task.Concurrency
 	if concurrency <= 0 {
-		concurrency = 10
+		concurrency = e.maxConcurrency
 	}
 	sem := make(chan struct{}, concurrency)
 

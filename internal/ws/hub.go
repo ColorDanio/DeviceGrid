@@ -10,9 +10,9 @@ import (
 )
 
 type Client struct {
-	conn *websocket.Conn
-	send chan []byte
-	hub  *Hub
+	conn   *websocket.Conn
+	send   chan []byte
+	hub    *Hub
 	topics map[string]bool
 }
 

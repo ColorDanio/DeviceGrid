@@ -53,7 +53,10 @@ test-cover:
 
 lint:
 	$(GOCMD) vet ./...
-	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "golangci-lint not installed, skipping"
+	@gofmt -l . | tee /tmp/gofmt-issues.txt | grep -q . && (echo "gofmt: files need formatting:"; cat /tmp/gofmt-issues.txt; exit 1) || echo "gofmt: OK"
+	@command -v goimports >/dev/null 2>&1 && goimports -l . | tee /tmp/goimports-issues.txt | grep -q . && (echo "goimports: files need fixing:"; cat /tmp/goimports-issues.txt; exit 1) || echo "goimports: OK"
+	@command -v staticcheck >/dev/null 2>&1 && staticcheck ./... || echo "staticcheck: not installed, skipping"
+	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "golangci-lint: not installed, skipping"
 
 lint-web:
 	cd $(WEB_DIR) && npm run lint

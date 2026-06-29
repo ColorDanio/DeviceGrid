@@ -17,10 +17,10 @@ import (
 )
 
 type Manager struct {
-	repos repo.Repositories
-	enc   *crypto.Encryptor
-	mu    sync.Mutex
-	pools map[string]*nodePool
+	repos  repo.Repositories
+	enc    *crypto.Encryptor
+	mu     sync.Mutex
+	pools  map[string]*nodePool
 	config Config
 }
 
@@ -220,12 +220,12 @@ type pooledClient struct {
 }
 
 type nodePool struct {
-	nodeID  string
-	max     int
-	mu      sync.Mutex
-	clients []*pooledClient
-	dialMu  sync.Mutex
-	stopCh  chan struct{}
+	nodeID   string
+	max      int
+	mu       sync.Mutex
+	clients  []*pooledClient
+	dialMu   sync.Mutex
+	stopCh   chan struct{}
 	stopOnce sync.Once
 }
 

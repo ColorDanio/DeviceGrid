@@ -20,8 +20,8 @@ type AlertRule struct {
 	ID         string  `json:"id"`
 	Name       string  `json:"name"`
 	Enabled    bool    `json:"enabled"`
-	Metric     string  `json:"metric"`     // "cpu" | "mem" | "disk" | "node_offline"
-	Operator   string  `json:"operator"`   // ">" | "<" | "=="
+	Metric     string  `json:"metric"`   // "cpu" | "mem" | "disk" | "node_offline"
+	Operator   string  `json:"operator"` // ">" | "<" | "=="
 	Threshold  float64 `json:"threshold"`
 	WebhookURL string  `json:"webhook_url"`
 	CooldownM  int     `json:"cooldown_min"`
@@ -201,7 +201,7 @@ func (am *AlertManager) evaluate(operator string, value, threshold float64) bool
 
 func (am *AlertManager) sendWebhook(url string, event AlertEvent) {
 	payload, _ := json.Marshal(map[string]interface{}{
-		"text": event.Message,
+		"text":  event.Message,
 		"alert": event,
 	})
 	resp, err := am.client.Post(url, "application/json", bytes.NewReader(payload))

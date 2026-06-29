@@ -23,12 +23,12 @@ import (
 	"github.com/michael/device_grid/internal/crypto"
 	"github.com/michael/device_grid/internal/node"
 	"github.com/michael/device_grid/internal/ssh"
+	_ "github.com/michael/device_grid/internal/store/mongodb"
 	"github.com/michael/device_grid/internal/store/repo"
 	_ "github.com/michael/device_grid/internal/store/sqlite"
-	_ "github.com/michael/device_grid/internal/store/mongodb"
 	"github.com/michael/device_grid/internal/transport"
-	sshtransport "github.com/michael/device_grid/internal/transport/ssh"
 	agenttransport "github.com/michael/device_grid/internal/transport/agent"
+	sshtransport "github.com/michael/device_grid/internal/transport/ssh"
 	"github.com/michael/device_grid/internal/web"
 	"github.com/michael/device_grid/internal/ws"
 	"google.golang.org/grpc"
@@ -60,7 +60,7 @@ func main() {
 		// Persist to a separate key file (NOT config.yaml) with restricted permissions
 		keyFile := filepath.Join(filepath.Dir(configPath), ".master_key")
 		os.WriteFile(keyFile, []byte(masterKey), 0600)
-		slog.Warn("crypto.master_key not set, generated and saved to "+keyFile+" (chmod 600)")
+		slog.Warn("crypto.master_key not set, generated and saved to " + keyFile + " (chmod 600)")
 		slog.Warn("For production: set DG_CRYPTO_MASTER_KEY env var and remove this file")
 	}
 
@@ -81,7 +81,7 @@ func main() {
 	defer cancel()
 
 	slog.Info("connecting database", "driver", cfg.Database.Driver)
-	repos, err := repo.New(ctx, cfg.Database.Driver)
+	repos, err := repo.New(ctx, cfg.Database)
 	if err != nil {
 		log.Fatalf("init store: %v", err)
 	}
@@ -135,10 +135,13 @@ func main() {
 	go hub.Run()
 
 	healthChecker := node.NewHealthChecker(repos, transportMgr, hub)
+	healthChecker.SetInterval(cfg.Node.HealthCheckInterval)
 	healthChecker.Start()
 	defer healthChecker.Stop()
 
 	metricsCache := node.NewMetricsCache(transportMgr, repos, hub)
+	metricsCache.SetInterval(cfg.Node.MetricsInterval)
+	metricsCache.SetConcurrency(cfg.Node.MetricsConcurrency)
 	metricsCache.Start()
 	defer metricsCache.Stop()
 
@@ -167,6 +170,8 @@ func main() {
 
 	jm := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpire)
 	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, alertMgr, cronSched)
+	router.SetCORSOrigins(cfg.Server.CORSOrigins)
+	router.SetDeployMaxConcurrency(cfg.Deploy.MaxConcurrent)
 	engine := router.Setup(cfg.Server.Mode)
 
 	web.RegisterStaticFiles(engine, cfg.IsDebug())
@@ -174,9 +179,9 @@ func main() {
 	srv := &http.Server{
 		Addr:         cfg.ListenAddr(),
 		Handler:      engine,
-		ReadTimeout:  30 * time.Second,
+		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: 0, // Disable write timeout for WebSocket/long-poll endpoints
-		IdleTimeout:  120 * time.Second,
+		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
 	go func() {

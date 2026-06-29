@@ -21,7 +21,7 @@ type HealthChecker struct {
 	running   bool
 	cancel    context.CancelFunc
 	// Track consecutive failures before marking offline
-	failures  map[string]int
+	failures map[string]int
 }
 
 func NewHealthChecker(repos repo.Repositories, tm *transport.Manager, hub *ws.Hub) *HealthChecker {
@@ -32,6 +32,15 @@ func NewHealthChecker(repos repo.Repositories, tm *transport.Manager, hub *ws.Hu
 		interval:  30 * time.Second,
 		failures:  make(map[string]int),
 	}
+}
+
+func (hc *HealthChecker) SetInterval(d time.Duration) {
+	if d <= 0 {
+		return
+	}
+	hc.mu.Lock()
+	hc.interval = d
+	hc.mu.Unlock()
 }
 
 func (hc *HealthChecker) Start() {

@@ -55,10 +55,10 @@ type NodeMetrics struct {
 }
 
 type GPUInfo struct {
-	Index     int     `json:"index"`
-	Name      string  `json:"name"`
-	MemoryTotal uint64 `json:"memory_total"`
-	MemoryUsed  uint64 `json:"memory_used"`
+	Index       int     `json:"index"`
+	Name        string  `json:"name"`
+	MemoryTotal uint64  `json:"memory_total"`
+	MemoryUsed  uint64  `json:"memory_used"`
 	Utilization float64 `json:"utilization"`
 	Temperature int     `json:"temperature"`
 }

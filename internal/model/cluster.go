@@ -31,7 +31,7 @@ type Cluster struct {
 }
 
 type ClusterNode struct {
-	NodeID string           `json:"node_id" bson:"node_id"`
-	Role   ClusterNodeRole  `json:"role" bson:"role"`
-	Ready  bool             `json:"ready" bson:"ready"`
+	NodeID string          `json:"node_id" bson:"node_id"`
+	Role   ClusterNodeRole `json:"role" bson:"role"`
+	Ready  bool            `json:"ready" bson:"ready"`
 }

@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  devicegrid:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: dev
+    image: devicegrid/devicegrid:latest
+    container_name: devicegrid
+    restart: unless-stopped
+    ports:
+      - "3000:3000"   # Web UI + REST API
+      - "9090:9090"   # Agent gRPC
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+    environment:
+      DG_AUTH_JWT_SECRET: "${DG_AUTH_JWT_SECRET:?set DG_AUTH_JWT_SECRET in .env}"
+      DG_CRYPTO_MASTER_KEY: "${DG_CRYPTO_MASTER_KEY:?set DG_CRYPTO_MASTER_KEY in .env}"
+      DG_DEFAULT_ADMIN_PASSWORD: "${DG_DEFAULT_ADMIN_PASSWORD:-changeme-now}"
+      DG_SERVER_MODE: "release"
+    healthcheck:
+      test: ["CMD", "/app/devicegrid-server", "--health-check"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
