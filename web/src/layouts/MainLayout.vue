@@ -9,12 +9,12 @@
       <nav class="sidebar-nav">
         <router-link v-for="item in menuItems" :key="item.path" :to="item.path" class="nav-link" active-class="active">
           <div class="nav-icon" v-html="item.svg"></div>
-          <transition name="fade"><span v-show="!auth.sidebarCollapsed" class="nav-text">{{ item.title }}</span></transition>
+          <transition name="fade"><span v-show="!auth.sidebarCollapsed" class="nav-text">{{ t(item.title) }}</span></transition>
           <div class="nav-indicator"></div>
         </router-link>
       </nav>
       <div class="sidebar-footer">
-        <button class="collapse-btn" @click="auth.toggleSidebar()">
+        <button class="collapse-btn" :aria-label="t('common.collapseSidebar')" @click="auth.toggleSidebar()">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path v-if="!auth.sidebarCollapsed" d="M11 17l-5-5 5-5M18 17l-5-5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path v-else d="M13 17l5-5-5-5M6 17l5-5-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
       </div>
@@ -34,6 +34,16 @@
           <div class="header-div"></div>
           <ThemeSwitcher />
           <div class="header-div"></div>
+          <el-dropdown @command="changeLocale" trigger="click">
+            <button class="locale-btn" :aria-label="t('common.changeLanguage')">{{ localeLabel }}</button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="zh-CN">中文</el-dropdown-item>
+                <el-dropdown-item command="en-US">English</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+          <div class="header-div"></div>
           <el-dropdown @command="handleCommand" trigger="click">
             <div class="user-chip">
               <div class="user-avatar">{{ auth.username.charAt(0).toUpperCase() }}</div>
@@ -41,8 +51,8 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="settings">系统设置</el-dropdown-item>
-                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item command="settings">{{ t('common.settings') }}</el-dropdown-item>
+                <el-dropdown-item divided command="logout">{{ t('common.signOut') }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -64,11 +74,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { listNodes, type Node } from '@/api/nodes'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import client from '@/api/client'
+import { setLocale } from '@/i18n'
+
+const { locale, t } = useI18n()
 
 const appVersion = ref('')
 async function loadVersion() {
@@ -100,21 +114,27 @@ const icons: Record<string, string> = {
 
 const menuItems = computed(() =>
   router.options.routes.flatMap((r) => r.children || []).filter((r) => !r.meta?.hidden).map((r) => ({
-    path: r.path.startsWith('/') ? r.path : `/${r.path}`, title: r.meta?.title || '',
+    path: r.path.startsWith('/') ? r.path : `/${r.path}`, title: String(r.meta?.title ?? ''),
     svg: icons[r.name as string] || '',
   })),
 )
-const currentTitle = computed(() => (route.meta?.title as string) || 'DeviceGrid')
-const roleLabel = computed(() => ({ admin: '管理员', operator: '操作员', viewer: '观察者' }[auth.role] || auth.role))
+const currentTitle = computed(() => t((route.meta?.title as string) || 'app.tagline'))
+const roleLabel = computed(() => t(`roles.${auth.role}`))
 const quickStats = computed(() => [
-  { label: '在线', value: nodes.value.filter((n) => n.status === 'online').length, color: '#22c55e' },
-  { label: '离线', value: nodes.value.filter((n) => n.status === 'offline' || n.status === 'error').length, color: '#ef4444' },
-  { label: '总数', value: nodes.value.length, color: '#22d3ee' },
+  { label: t('common.online'), value: nodes.value.filter((n) => n.status === 'online').length, color: '#22c55e' },
+  { label: t('common.offline'), value: nodes.value.filter((n) => n.status === 'offline' || n.status === 'error').length, color: '#ef4444' },
+  { label: t('common.total'), value: nodes.value.length, color: '#22d3ee' },
 ])
+
+const localeLabel = computed(() => locale.value === 'zh-CN' ? '中文' : 'EN')
+
+function changeLocale(value: string) {
+  if (value === 'zh-CN' || value === 'en-US') setLocale(value)
+}
 
 function handleCommand(cmd: string) {
   if (cmd === 'logout') {
-    ElMessageBox.confirm('确定要退出登录吗？', '', { confirmButtonText: '退出', cancelButtonText: '取消', type: 'warning' })
+    ElMessageBox.confirm(t('confirm.signOut'), '', { confirmButtonText: t('common.signOut'), cancelButtonText: t('common.cancel'), type: 'warning' })
       .then(() => { auth.logout(); router.push('/login') }).catch(() => {})
   } else if (cmd === 'settings') router.push('/settings')
 }
@@ -181,6 +201,7 @@ onBeforeUnmount(() => { if (pt) clearInterval(pt) })
     .pill-lbl { color: var(--dg-text-faint); font-size: 11px; }
   }
   .header-div { width: 1px; height: 24px; background: var(--dg-border); }
+  .locale-btn { min-width: 38px; height: 34px; border-radius: 8px; border: 1px solid var(--dg-border); background: var(--dg-bg-2); color: var(--dg-text-dim); cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; &:hover { border-color: var(--accent); color: var(--accent); } }
   .user-chip {
     display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 12px 4px 4px; border-radius: 30px; transition: all 0.2s;
     &:hover { background: var(--dg-table-row-hover); }

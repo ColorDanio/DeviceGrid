@@ -7,22 +7,22 @@
           <div class="logo-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none"><path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z" fill="currentColor"/></svg></div>
           <span class="logo-text">DeviceGrid</span>
         </div>
-        <h1 class="form-title">服务器集群<br/>智能管控平台</h1>
-        <p class="form-desc">SSH + Agent 双通道 · 实时监控 · Docker 管理 · RKE2 编排</p>
+        <h1 class="form-title">{{ t('app.tagline') }}</h1>
+        <p class="form-desc">SSH + Agent · Docker · RKE2</p>
         <form @submit.prevent="handleLogin" class="login-form">
           <div class="input-group">
-            <input v-model="form.username" type="text" placeholder="用户名" autocomplete="username" :class="{ focused: focused === 'user' }" @focus="focused = 'user'" @blur="focused = ''" />
+            <input v-model="form.username" type="text" :placeholder="t('auth.username')" :aria-label="t('auth.username')" autocomplete="username" :class="{ focused: focused === 'user' }" @focus="focused = 'user'" @blur="focused = ''" />
           </div>
           <div class="input-group">
-            <input v-model="form.password" :type="showPwd ? 'text' : 'password'" placeholder="密码" autocomplete="current-password" :class="{ focused: focused === 'pwd' }" @focus="focused = 'pwd'" @blur="focused = ''" />
-            <button type="button" class="pwd-btn" @click="showPwd = !showPwd">{{ showPwd ? '隐藏' : '显示' }}</button>
+            <input v-model="form.password" :type="showPwd ? 'text' : 'password'" :placeholder="t('auth.password')" :aria-label="t('auth.password')" autocomplete="current-password" :class="{ focused: focused === 'pwd' }" @focus="focused = 'pwd'" @blur="focused = ''" />
+            <button type="button" class="pwd-btn" @click="showPwd = !showPwd">{{ showPwd ? t('auth.hidePassword') : t('auth.showPassword') }}</button>
           </div>
           <button type="submit" class="submit-btn" :disabled="loading">
-            <span v-if="!loading">登 录</span>
+            <span v-if="!loading">{{ t('auth.signIn') }}</span>
             <span v-else class="loading"></span>
           </button>
         </form>
-        <div class="hint">默认账户 <strong>admin</strong> / <strong>admin123</strong></div>
+        <div class="hint">{{ t('auth.defaultAccount') }} <strong>admin</strong> / <strong>admin123</strong></div>
       </div>
     </div>
   </div>
@@ -31,10 +31,12 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const { t } = useI18n()
 const auth = useAuthStore()
 const loading = ref(false)
 const showPwd = ref(false)
@@ -42,7 +44,7 @@ const focused = ref('')
 const form = reactive({ username: 'admin', password: 'admin123' })
 
 async function handleLogin() {
-  if (!form.username || !form.password) { ElMessage.warning('请输入用户名和密码'); return }
+  if (!form.username || !form.password) { ElMessage.warning(t('auth.missingCredentials')); return }
   loading.value = true
   try { await auth.login(form); router.push('/kanban') } catch {} finally { loading.value = false }
 }

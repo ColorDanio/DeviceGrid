@@ -7,6 +7,8 @@ batch deployment, and RKE2 workflows into one self-hosted web application. Manag
 small lab or a growing fleet through SSH, then deploy lightweight agents where a
 persistent mTLS connection is a better fit.
 
+![DeviceGrid dashboard](docs/assets/dashboard.png)
+
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![Vue](https://img.shields.io/badge/Vue-3-42B883?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-2563EB)](LICENSE)
@@ -19,6 +21,7 @@ persistent mTLS connection is a better fit.
 - Run scripts and package installs across selected nodes with live output.
 - Create and operate RKE2 clusters, including pre-flight checks and rolling upgrades.
 - Automate recurring work, alerts, and audit trails with role-based access control.
+- Work in Chinese or English from the application header; the selected language persists locally.
 
 ## Get Started
 

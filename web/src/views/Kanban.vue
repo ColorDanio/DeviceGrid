@@ -9,15 +9,15 @@
     </div>
 
     <div class="section-header">
-      <h3>节点状态</h3>
+      <h3>{{ t('common.nodeStatus') }}</h3>
       <div class="section-tools">
         <div class="filter-chips">
-          <button class="fchip" :class="{ active: filterStatus === '' }" @click="filterStatus = ''">全部 {{ nodes.length }}</button>
-          <button class="fchip" :class="{ active: filterStatus === 'online' }" @click="filterStatus = 'online'">在线 {{ onlineCount }}</button>
-          <button class="fchip" :class="{ active: filterStatus === 'offline' }" @click="filterStatus = 'offline'">离线 {{ offlineCount }}</button>
-          <button class="fchip" :class="{ active: filterStatus === 'untrusted' }" @click="filterStatus = 'untrusted'">未授信 {{ untrustedCount }}</button>
+          <button class="fchip" :class="{ active: filterStatus === '' }" @click="filterStatus = ''">{{ t('common.all') }} {{ nodes.length }}</button>
+          <button class="fchip" :class="{ active: filterStatus === 'online' }" @click="filterStatus = 'online'">{{ t('common.online') }} {{ onlineCount }}</button>
+          <button class="fchip" :class="{ active: filterStatus === 'offline' }" @click="filterStatus = 'offline'">{{ t('common.offline') }} {{ offlineCount }}</button>
+          <button class="fchip" :class="{ active: filterStatus === 'untrusted' }" @click="filterStatus = 'untrusted'">{{ t('common.untrusted') }} {{ untrustedCount }}</button>
         </div>
-        <button class="icon-btn" :class="{ spinning: loading }" @click="loadNodes"><svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2"/><path d="M3.5 9a9 9 0 0114.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="icon-btn" :aria-label="t('common.refresh')" :class="{ spinning: loading }" @click="loadNodes"><svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2"/><path d="M3.5 9a9 9 0 0114.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15" stroke="currentColor" stroke-width="2"/></svg></button>
       </div>
     </div>
 
@@ -78,7 +78,7 @@
           </div>
         </div>
         <div class="nc-offline-metrics" v-else-if="n.status === 'online'">
-          <span class="collecting">采集中...</span>
+          <span class="collecting">{{ t('common.collecting') }}</span>
         </div>
         <div class="nc-offline-metrics" v-else>
           <span :class="n.status">{{ statusLabel(n.status) }}</span>
@@ -86,15 +86,17 @@
       </div>
     </div>
 
-    <div v-if="!loading && filteredNodes.length === 0" class="empty"><p>暂无节点</p></div>
+    <div v-if="!loading && filteredNodes.length === 0" class="empty"><p>{{ t('common.noNodes') }}</p></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listNodes, getMetrics, type Node, type NodeMetrics } from '@/api/nodes'
 
 const loading = ref(false)
+const { t } = useI18n()
 const nodes = ref<Node[]>([])
 const metrics = ref<Record<string, NodeMetrics>>({})
 const filterStatus = ref('')
@@ -117,20 +119,20 @@ const kpis = computed(() => {
   const totalNetRx = ms.reduce((s, m) => s + (m.net_rx || 0), 0)
   const totalNetTx = ms.reduce((s, m) => s + (m.net_tx || 0), 0)
   return [
-    { label: '节点', value: nodes.value.length, unit: '', color: 'var(--accent)', pct: nodes.value.length ? onlineCount.value / nodes.value.length * 100 : 0 },
-    { label: '在线率', value: nodes.value.length ? (onlineCount.value / nodes.value.length * 100).toFixed(2) : '0.00', unit: '%', color: 'var(--dg-success)', pct: nodes.value.length ? onlineCount.value / nodes.value.length * 100 : 0 },
-    { label: 'CPU核数', value: totalCores, unit: 'C/'+totalThreads+'T', color: 'var(--accent)', pct: avgCpu },
-    { label: '平均CPU', value: avgCpu.toFixed(2), unit: '%', color: avgCpu > 80 ? 'var(--dg-danger)' : 'var(--accent)', pct: avgCpu },
-    { label: '内存', value: totalMem ? (usedMem / totalMem * 100).toFixed(2) : '0.00', unit: '%', color: 'var(--dg-success)', pct: totalMem ? usedMem / totalMem * 100 : 0 },
-    { label: '磁盘', value: totalDisk ? (usedDisk / totalDisk * 100).toFixed(2) : '0.00', unit: '%', color: 'var(--dg-warning)', pct: totalDisk ? usedDisk / totalDisk * 100 : 0 },
-    { label: '网络流量', value: fmtRate(totalNetRx + totalNetTx), unit: '', color: 'var(--accent)', pct: 0 },
+    { label: t('common.nodeCount'), value: nodes.value.length, unit: '', color: 'var(--accent)', pct: nodes.value.length ? onlineCount.value / nodes.value.length * 100 : 0 },
+    { label: t('common.onlineRate'), value: nodes.value.length ? (onlineCount.value / nodes.value.length * 100).toFixed(2) : '0.00', unit: '%', color: 'var(--dg-success)', pct: nodes.value.length ? onlineCount.value / nodes.value.length * 100 : 0 },
+    { label: t('common.cpuCores'), value: totalCores, unit: 'C/'+totalThreads+'T', color: 'var(--accent)', pct: avgCpu },
+    { label: t('common.averageCpu'), value: avgCpu.toFixed(2), unit: '%', color: avgCpu > 80 ? 'var(--dg-danger)' : 'var(--accent)', pct: avgCpu },
+    { label: t('common.memory'), value: totalMem ? (usedMem / totalMem * 100).toFixed(2) : '0.00', unit: '%', color: 'var(--dg-success)', pct: totalMem ? usedMem / totalMem * 100 : 0 },
+    { label: t('common.disk'), value: totalDisk ? (usedDisk / totalDisk * 100).toFixed(2) : '0.00', unit: '%', color: 'var(--dg-warning)', pct: totalDisk ? usedDisk / totalDisk * 100 : 0 },
+    { label: t('common.networkTraffic'), value: fmtRate(totalNetRx + totalNetTx), unit: '', color: 'var(--accent)', pct: 0 },
   ]
 })
 
 const filteredNodes = computed(() => filterStatus.value ? nodes.value.filter(n => n.status === filterStatus.value) : nodes.value)
 
-function statusLabel(s: string) { return ({ online: '在线', offline: '离线', untrusted: '未授信', error: '异常' } as Record<string,string>)[s] || s }
-function virtLabel(v: string) { if (!v || v === 'bare-metal' || v === 'none') return '物理机'; if (v === 'kvm') return 'KVM'; if (v === 'docker') return 'Docker'; if (v === 'lxc') return 'LXC'; return v.toUpperCase() }
+function statusLabel(s: string) { return t(`common.${s}`) }
+function virtLabel(v: string) { if (!v || v === 'bare-metal' || v === 'none') return t('common.physicalMachine'); if (v === 'kvm') return 'KVM'; if (v === 'docker') return 'Docker'; if (v === 'lxc') return 'LXC'; return v.toUpperCase() }
 function flag(cc: string) { if (!cc || cc.length !== 2) return ''; return String.fromCodePoint(0x1F1E6 + cc.charCodeAt(0) - 65) + String.fromCodePoint(0x1F1E6 + cc.charCodeAt(1) - 65) }
 function shortCPU(model: string) { if (!model) return ''; const parts = model.split(/\s+/); return parts.slice(0, 4).join(' ').replace(/\(R\)|\(TM\)|CPU/g, '').replace(/\s+/g, ' ').trim() }
 function memPct(m: NodeMetrics) { return m.mem_total > 0 ? m.mem_used / m.mem_total * 100 : 0 }
