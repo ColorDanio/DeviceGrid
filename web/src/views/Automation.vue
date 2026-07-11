@@ -141,7 +141,6 @@ const onlineNodes = computed(() => nodes.value.filter(n => n.status === 'online'
 // Alerts
 const alertsLoading = ref(false)
 const alertRules = ref<auto.AlertRule[]>([])
-const alertDialog = ref(false)
 const showAlertDialog = ref(false)
 const alertForm = ref({ name: '', metric: 'cpu', operator: '>', threshold: 90, cooldown_min: 30, webhook_url: '' })
 

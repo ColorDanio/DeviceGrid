@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { listNodes, type Node } from '@/api/nodes'
 
 const props = withDefaults(defineProps<{

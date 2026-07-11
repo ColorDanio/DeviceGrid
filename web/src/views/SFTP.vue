@@ -121,7 +121,6 @@ function formatTime(ts: number): string {
   return new Date(ts * 1000).toLocaleString()
 }
 
-function downloadUrl(filePath: string): string { return '' }
 async function handleDownload(f: FileEntry) {
   await downloadFile(selectedNode.value, f.path, f.name)
 }

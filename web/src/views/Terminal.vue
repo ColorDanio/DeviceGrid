@@ -49,7 +49,7 @@
         <!-- Primary -->
         <div class="pane primary-pane" :class="{ focused: focusedPane === 'primary' }" @click="focusedPane = 'primary'">
           <div class="pane-term-box">
-            <div v-for="[sid, s] in sessionList" :key="sid"
+            <div v-for="[sid] in sessionList" :key="sid"
               class="term-host" :ref="el => setPrimaryRef(el as HTMLElement, sid)"
               v-show="sid === primaryId"></div>
           </div>
@@ -57,7 +57,7 @@
         <!-- Secondary -->
         <div v-if="splitMode !== 'none'" class="pane secondary-pane" :class="{ focused: focusedPane === 'secondary' }" @click="focusedPane = 'secondary'">
           <div class="pane-term-box">
-            <div v-for="[sid, s] in sessionList" :key="'s'+sid"
+            <div v-for="[sid] in sessionList" :key="'s'+sid"
               class="term-host" :ref="el => setSecondaryRef(el as HTMLElement, sid)"
               v-show="sid === secondaryId"></div>
           </div>

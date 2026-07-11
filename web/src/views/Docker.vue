@@ -271,7 +271,7 @@ async function composeDown() {
 
 // Container exec terminal
 const execVisible = ref(false); const execName = ref(''); const execTermEl = ref<HTMLElement>()
-let execTerm: Terminal | null = null; let execWs: WebSocket | null = null; let execCid = ''; let execFit: any = null
+let execTerm: Terminal | null = null; let execWs: WebSocket | null = null; let execCid = ''
 function execContainer(c: ContainerInfo) { execCid = c.id; execName.value = c.name; execVisible.value = true }
 const statsVisible = ref(false); const statsName = ref(''); const statsData = ref<Record<string,string>|null>(null); let statsCid = ''
 async function showStats(c: ContainerInfo) { statsCid = c.id; statsName.value = c.name; statsData.value = null; statsVisible.value = true; refreshStats() }
@@ -280,7 +280,6 @@ function initExecTerm() {
   if (!execTermEl.value) return
   const { term, fit } = createTerminal(execTermEl.value)
   execTerm = term
-  execFit = fit
   // Fit after dialog is fully rendered
   setTimeout(() => { try { fit.fit() } catch {} }, 100)
 

@@ -360,7 +360,6 @@ function loadCachedChecks() {
   const r = loadCache('route'); if (r) { routeResults.value = r.data; routeTime.value = r.testedAt }
 }
 
-function streamingStatusLabel(s: string) { return ({ UNLOCK: '解锁', AVAILABLE: '可用', PARTIAL: '部分', LOCKED: '锁定', UNAVAILABLE: '不可用', OK: '可用', LIMITED: '受限', BLOCKED: '不可用' } as Record<string,string>)[s] || s }
 function latencyClass(ms: number, ok: boolean) { if (!ok) return 'bad'; if (ms < 100) return 'good'; if (ms < 200) return 'ok'; return 'slow' }
 function latencyColor(ms: number) { if (ms < 100) return 'var(--dg-success)'; if (ms < 200) return 'var(--dg-warning)'; return 'var(--dg-danger)' }
 function ispClass(isp: string) { if (isp.includes('电信')) return 'ct'; if (isp.includes('联通')) return 'cu'; if (isp.includes('移动')) return 'cm'; return '' }

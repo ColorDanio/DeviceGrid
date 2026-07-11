@@ -1,4 +1,4 @@
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
 import { listNodes, type Node } from '@/api/nodes'
 
 export interface TerminalTab {
