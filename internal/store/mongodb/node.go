@@ -70,7 +70,7 @@ func (r *NodeRepository) Update(ctx context.Context, n *model.Node) error {
 
 func (r *NodeRepository) UpdateStatus(ctx context.Context, id string, status model.NodeStatus) error {
 	_, err := r.coll.UpdateByID(ctx, id, bson.M{"$set": bson.M{
-		"status":      status,
+		"status":       status,
 		"last_seen_at": timeNow(),
 		"updated_at":   timeNow(),
 	}})
