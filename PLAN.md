@@ -2,6 +2,11 @@
 
 > Status legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
+> Historical phases: the detailed Phase 1–7 checklists are preserved from the
+> original implementation plan and are not maintained as a second source of
+> truth. The verified milestone table and Phase 8 below define current status;
+> use `TASK.md` for the active, test-backed priority list.
+
 ---
 
 ## Phase 1 — Foundation & Skeleton
@@ -393,9 +398,9 @@ runs the complete application.
   - [x] Configurable HTTP server timeouts
 
 - [~] **8.3 Features**
-  - [ ] Agent PTY via gRPC tunnel (eliminate SSH for terminal)
+  - [x] Agent PTY via gRPC tunnel (terminal and container terminal prefer the connected tunnel transport)
   - [ ] Docker management via Agent (local Docker API)
-  - [ ] Configurable Docker/RKE2 install mirror URLs
+  - [x] Configurable Docker registry and RKE2 installer mirror URLs
   - [x] Terminal search (Ctrl+F) with SearchAddon
   - [x] Batch deployment with file distribution
 
@@ -403,7 +408,7 @@ runs the complete application.
   - [x] Unit tests: auth, crypto, SSH pool, SQLite repos
   - [ ] Coverage > 70% (current: ~25%, focused on critical paths)
   - [ ] Integration tests with testcontainers
-  - [ ] Frontend component tests (Vitest)
+  - [x] Frontend component tests (Vitest)
 
 - [x] **8.5 Distribution**
   - [x] Docker image (multi-stage, distroless)

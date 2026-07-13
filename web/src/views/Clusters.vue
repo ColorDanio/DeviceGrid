@@ -2,12 +2,12 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title-group">
-        <h2>RKE2 集群</h2>
-        <p class="page-subtitle">管理 RKE2 Kubernetes 集群的全生命周期</p>
+        <h2>{{ t('nav.clusters') }}</h2>
+        <p class="page-subtitle">{{ t('feature.clusterSubtitle') }}</p>
       </div>
       <button class="btn-primary" @click="showWizard = true">
         <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        创建集群
+        {{ t('feature.clusterCreate') }}
       </button>
     </div>
 
@@ -23,22 +23,22 @@
           <span class="cc-status" :class="c.status">{{ statusLabel(c.status) }}</span>
         </div>
         <div class="cc-body">
-          <div class="cc-row"><span>节点数</span><strong>{{ c.nodes?.length || 0 }}</strong></div>
+          <div class="cc-row"><span>{{ t('feature.clusterNodeCount') }}</span><strong>{{ c.nodes?.length || 0 }}</strong></div>
           <div class="cc-row"><span>Server</span><strong class="mono">{{ getNodeName(c.server_node) }}</strong></div>
         </div>
       </div>
 
       <div v-if="!loading && clusters.length === 0" class="empty-card" @click="showWizard = true">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" style="opacity:0.3"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="5" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="19" cy="5" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="19" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="19" cy="19" r="2" stroke="currentColor" stroke-width="1.5"/></svg>
-        <span>创建第一个集群</span>
+        <span>{{ t('feature.clusterCreateFirst') }}</span>
       </div>
     </div>
 
     <!-- Create Cluster Wizard -->
-    <el-dialog v-model="showWizard" title="创建 RKE2 集群" width="640px" :close-on-click-modal="false" align-center>
+    <el-dialog v-model="showWizard" :title="t('feature.clusterCreateRke2')" width="640px" :close-on-click-modal="false" align-center>
       <!-- Step 1: Select Server Node -->
       <div class="wiz-step">
-        <div class="step-title"><span class="step-num">1</span>选择 Server 节点（控制平面）</div>
+        <div class="step-title"><span class="step-num">1</span>{{ t('feature.clusterSelectServer') }}</div>
         <div class="wiz-nodes">
           <label v-for="n in onlineNodes" :key="n.id" class="wiz-node" :class="{ checked: form.serverNode === n.id }">
             <input type="radio" :value="n.id" v-model="form.serverNode" />
@@ -47,10 +47,10 @@
             <span class="wn-host">{{ n.host }}</span>
             <span v-if="n.country_code" class="wn-flag">{{ flag(n.country_code) }}</span>
           </label>
-          <div v-if="onlineNodes.length === 0" class="wiz-empty">暂无在线节点</div>
+          <div v-if="onlineNodes.length === 0" class="wiz-empty">{{ t('feature.clusterNoOnlineNodes') }}</div>
         </div>
         <button v-if="form.serverNode" class="preflight-btn" @click="runPreflight(form.serverNode)" :disabled="preflightLoading">
-          {{ preflightLoading ? '检查中...' : '运行前置检查' }}
+          {{ preflightLoading ? t('feature.clusterChecking') : t('feature.clusterRunPreflight') }}
         </button>
         <!-- Pre-flight Results -->
         <div v-if="preflightResult" class="preflight-result">
@@ -66,7 +66,7 @@
 
       <!-- Step 2: Select Agent Nodes -->
       <div class="wiz-step">
-        <div class="step-title"><span class="step-num">2</span>选择 Agent 节点（工作节点，可选）</div>
+        <div class="step-title"><span class="step-num">2</span>{{ t('feature.clusterSelectAgents') }}</div>
         <div class="wiz-nodes">
           <label v-for="n in onlineNodes.filter(x => x.id !== form.serverNode)" :key="n.id" class="wiz-node check" :class="{ checked: form.agentNodes.includes(n.id) }">
             <input type="checkbox" :value="n.id" v-model="form.agentNodes" />
@@ -74,22 +74,22 @@
             <span class="wn-name">{{ n.name }}</span>
             <span class="wn-host">{{ n.host }}</span>
           </label>
-          <div v-if="onlineNodes.filter(x => x.id !== form.serverNode).length === 0" class="wiz-empty">暂无其他在线节点</div>
+          <div v-if="onlineNodes.filter(x => x.id !== form.serverNode).length === 0" class="wiz-empty">{{ t('feature.clusterNoOtherOnlineNodes') }}</div>
         </div>
       </div>
 
       <!-- Step 3: Configuration -->
       <div class="wiz-step">
-        <div class="step-title"><span class="step-num">3</span>集群配置</div>
+        <div class="step-title"><span class="step-num">3</span>{{ t('feature.clusterConfiguration') }}</div>
         <div class="wiz-config">
           <div class="cfg-row">
-            <label>集群名称</label>
+            <label>{{ t('feature.clusterName') }}</label>
             <input v-model="form.name" placeholder="my-cluster" />
           </div>
           <div class="cfg-row">
-            <label>RKE2 版本</label>
+            <label>{{ t('feature.clusterVersion') }}</label>
             <select v-model="form.version">
-              <option value="">最新稳定版 (latest)</option>
+              <option value="">{{ t('feature.clusterLatestStable') }}</option>
               <option value="v1.31.5+rke2r1">v1.31.5+rke2r1</option>
               <option value="v1.31.4+rke2r1">v1.31.4+rke2r1</option>
               <option value="v1.31.3+rke2r1">v1.31.3+rke2r1</option>
@@ -102,32 +102,32 @@
             </select>
           </div>
           <div class="cfg-row">
-            <label>CNI 插件</label>
+            <label>{{ t('feature.clusterCni') }}</label>
             <select v-model="form.cni">
-              <option value="canal">canal (默认)</option>
+              <option value="canal">{{ t('feature.clusterCanalDefault') }}</option>
               <option value="calico">calico</option>
               <option value="cilium">cilium</option>
             </select>
           </div>
           <div class="cfg-row">
-            <label>网络代理 (可选)</label>
+            <label>{{ t('feature.clusterProxy') }}</label>
             <input v-model="form.proxy" placeholder="http://proxy:port" />
           </div>
           <div class="cfg-row">
-            <label>ETCD 自动备份</label>
+            <label>{{ t('feature.clusterEtcdSnapshots') }}</label>
             <label class="toggle"><input type="checkbox" v-model="form.etcdSnapshots" /> <span></span></label>
           </div>
         </div>
       </div>
 
       <template #footer>
-        <el-button @click="showWizard = false">取消</el-button>
-        <el-button type="primary" :loading="creating" :disabled="!form.serverNode || !form.name" @click="handleCreate">创建集群</el-button>
+        <el-button @click="showWizard = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="creating" :disabled="!form.serverNode || !form.name" @click="handleCreate">{{ t('feature.clusterCreate') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Cluster Detail -->
-    <el-dialog v-model="detailVisible" :title="currentCluster?.name || '集群详情'" width="860px" top="4vh" align-center>
+    <el-dialog v-model="detailVisible" :title="currentCluster?.name || t('feature.clusterDetail')" width="860px" top="4vh" align-center>
       <div v-if="currentCluster" class="cluster-detail">
         <!-- Tabs -->
         <div class="detail-tabs">
@@ -137,14 +137,14 @@
         <!-- Overview Tab -->
         <div v-if="activeTab === 'overview'" class="detail-content">
           <div class="detail-info">
-            <div class="di-item"><span>状态</span><strong class="cc-status" :class="currentCluster.status">{{ statusLabel(currentCluster.status) }}</strong></div>
-            <div class="di-item"><span>版本</span><strong>{{ currentCluster.version || 'latest' }}</strong></div>
-            <div class="di-item"><span>节点数</span><strong>{{ currentCluster.nodes?.length || 0 }}</strong></div>
-            <div class="di-item"><span>创建时间</span><strong>{{ formatTime(currentCluster.created_at) }}</strong></div>
+            <div class="di-item"><span>{{ t('feature.clusterStatus') }}</span><strong class="cc-status" :class="currentCluster.status">{{ statusLabel(currentCluster.status) }}</strong></div>
+            <div class="di-item"><span>{{ t('feature.clusterVersion') }}</span><strong>{{ currentCluster.version || 'latest' }}</strong></div>
+            <div class="di-item"><span>{{ t('feature.clusterNodeCount') }}</span><strong>{{ currentCluster.nodes?.length || 0 }}</strong></div>
+            <div class="di-item"><span>{{ t('feature.clusterCreatedAt') }}</span><strong>{{ formatTime(currentCluster.created_at) }}</strong></div>
           </div>
           <div class="detail-actions">
-            <button class="action-btn" @click="loadClusterStatus(currentCluster.id)">刷新状态</button>
-            <button class="action-btn action-danger" @click="handleDelete(currentCluster)">卸载集群</button>
+            <button class="action-btn" @click="loadClusterStatus(currentCluster.id)">{{ t('feature.clusterRefreshStatus') }}</button>
+            <button class="action-btn action-danger" @click="handleDelete(currentCluster)">{{ t('feature.clusterUninstall') }}</button>
           </div>
           <!-- Node status table -->
           <div v-if="clusterStatus.length > 0" class="status-table">
@@ -161,9 +161,9 @@
         <!-- Workloads Tab (K8s YAML apply) -->
         <div v-if="activeTab === 'workloads'" class="detail-content">
           <div class="config-header">
-            <h4>K8s 工作负载</h4>
+            <h4>{{ t('feature.clusterWorkloads') }}</h4>
             <div style="display:flex;gap:8px">
-              <button class="action-btn" @click="loadWorkloads">刷新列表</button>
+              <button class="action-btn" @click="loadWorkloads">{{ t('feature.clusterRefreshList') }}</button>
             </div>
           </div>
           <div style="margin-bottom:12px">
@@ -184,18 +184,18 @@ spec:
           </div>
           <button class="action-btn action-primary" @click="handleApplyYAML" :disabled="!k8sYAML">kubectl apply -f</button>
           <div class="k8s-delete-bar">
-            <input v-model="deleteKind" placeholder="类型(deployment/service)" class="k8s-input" />
-            <input v-model="deleteName" placeholder="名称" class="k8s-input" />
-            <button class="action-btn action-danger" @click="handleDeleteResource" :disabled="!deleteKind || !deleteName">删除</button>
+            <input v-model="deleteKind" :placeholder="t('feature.clusterResourceKind')" class="k8s-input" />
+            <input v-model="deleteName" :placeholder="t('feature.clusterResourceName')" class="k8s-input" />
+            <button class="action-btn action-danger" @click="handleDeleteResource" :disabled="!deleteKind || !deleteName">{{ t('feature.clusterDelete') }}</button>
           </div>
-          <pre class="console-output" style="margin-top:12px">{{ workloadOutput || '点击刷新查看当前工作负载' }}</pre>
+          <pre class="console-output" style="margin-top:12px">{{ workloadOutput || t('feature.clusterRefreshWorkloads') }}</pre>
         </div>
 
         <!-- Config Tab -->
         <div v-if="activeTab === 'config'" class="detail-content">
           <div class="config-header">
             <h4>config.yaml</h4>
-            <button class="action-btn" @click="handleSaveConfig">保存</button>
+            <button class="action-btn" @click="handleSaveConfig">{{ t('feature.clusterSave') }}</button>
           </div>
           <textarea v-model="editingConfig" class="config-editor" spellcheck="false" rows="14"></textarea>
         </div>
@@ -203,38 +203,38 @@ spec:
         <!-- Pods Tab -->
         <div v-if="activeTab === 'pods'" class="detail-content">
           <div class="config-header">
-            <h4>Pod 列表</h4>
-            <button class="action-btn" @click="loadPods(currentCluster.id)">刷新</button>
+            <h4>{{ t('feature.clusterPods') }}</h4>
+            <button class="action-btn" @click="loadPods(currentCluster.id)">{{ t('common.refresh') }}</button>
           </div>
-          <pre class="console-output">{{ podsOutput || '点击刷新查看 Pod 列表' }}</pre>
+          <pre class="console-output">{{ podsOutput || t('feature.clusterRefreshPods') }}</pre>
         </div>
 
         <!-- Helm Tab -->
         <div v-if="activeTab === 'helm'" class="detail-content">
           <div class="config-header">
-            <h4>Helm 管理</h4>
-            <button class="action-btn" @click="loadHelm(currentCluster.id)">刷新列表</button>
+            <h4>{{ t('feature.clusterHelm') }}</h4>
+            <button class="action-btn" @click="loadHelm(currentCluster.id)">{{ t('feature.clusterRefreshList') }}</button>
           </div>
           <div class="helm-install-bar">
-            <input v-model="helmChart" placeholder="chart 名称 (如: bitnami/nginx)" class="helm-input" />
-            <input v-model="helmRepo" placeholder="repo URL (可选)" class="helm-input" />
+            <input v-model="helmChart" :placeholder="t('feature.clusterHelmChart')" class="helm-input" />
+            <input v-model="helmRepo" :placeholder="t('feature.clusterHelmRepo')" class="helm-input" />
             <input v-model="helmNs" placeholder="namespace" class="helm-input small" />
-            <button class="action-btn action-primary" @click="handleHelmInstall" :disabled="!helmChart">安装</button>
+            <button class="action-btn action-primary" @click="handleHelmInstall" :disabled="!helmChart">{{ t('feature.clusterInstall') }}</button>
           </div>
-          <pre class="console-output">{{ helmOutput || '点击刷新查看已安装的 Helm releases' }}</pre>
+          <pre class="console-output">{{ helmOutput || t('feature.clusterRefreshHelm') }}</pre>
         </div>
 
         <!-- Rancher Tab -->
         <div v-if="activeTab === 'rancher'" class="detail-content">
           <div class="rancher-section">
             <div class="rancher-status">
-              <span class="rs-label">Rancher Manager 状态:</span>
-              <span v-if="rancherInfo.installed" class="rs-installed">已安装 ({{ rancherInfo.version }})</span>
-              <span v-else class="rs-not-installed">未安装</span>
+              <span class="rs-label">{{ t('feature.clusterRancherStatus') }}</span>
+              <span v-if="rancherInfo.installed" class="rs-installed">{{ t('feature.clusterInstalled', { version: rancherInfo.version }) }}</span>
+              <span v-else class="rs-not-installed">{{ t('feature.clusterNotInstalled') }}</span>
             </div>
             <div v-if="!rancherInfo.installed" class="rancher-install">
-              <input v-model="rancherHost" placeholder="Rancher 访问域名 (如: rancher.example.com)" class="helm-input" />
-              <button class="action-btn action-primary" @click="handleInstallRancher" :disabled="!rancherHost">安装 Rancher</button>
+              <input v-model="rancherHost" :placeholder="t('feature.clusterRancherHost')" class="helm-input" />
+              <button class="action-btn action-primary" @click="handleInstallRancher" :disabled="!rancherHost">{{ t('feature.clusterInstallRancher') }}</button>
             </div>
             <div v-if="rancherMsg" class="rancher-msg">{{ rancherMsg }}</div>
           </div>
@@ -246,10 +246,13 @@ spec:
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listNodes, type Node } from '@/api/nodes'
 import * as clustersApi from '@/api/clusters'
 import { getK8sResources, applyYAML, deleteK8sResource } from '@/api/features'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const clusters = ref<clustersApi.Cluster[]>([])
@@ -291,15 +294,15 @@ const workloadOutput = ref('')
 
 const onlineNodes = computed(() => nodes.value.filter(n => n.status === 'online'))
 const tabs = [
-  { id: 'overview', name: '概览' },
-  { id: 'workloads', name: '工作负载' },
-  { id: 'config', name: '配置' },
+  { id: 'overview', name: t('feature.clusterOverview') },
+  { id: 'workloads', name: t('feature.clusterWorkloads') },
+  { id: 'config', name: t('feature.clusterConfiguration') },
   { id: 'pods', name: 'Pods' },
   { id: 'helm', name: 'Helm' },
   { id: 'rancher', name: 'Rancher' },
 ]
 
-function statusLabel(s: string) { return ({ healthy: '健康', degraded: '降级', provisioning: '部署中', error: '异常' } as Record<string, string>)[s] || s }
+function statusLabel(s: string) { return ({ healthy: t('feature.clusterHealthy'), degraded: t('feature.clusterDegraded'), provisioning: t('feature.clusterProvisioning'), error: t('common.error') } as Record<string, string>)[s] || s }
 function formatTime(t: string) { if (!t || t.startsWith('0001')) return '-'; return new Date(t).toLocaleString() }
 function flag(cc: string) { if (!cc || cc.length !== 2) return ''; return String.fromCodePoint(0x1F1E6 + cc.charCodeAt(0) - 65) + String.fromCodePoint(0x1F1E6 + cc.charCodeAt(1) - 65) }
 function getNodeName(id: string) { return nodes.value.find(n => n.id === id)?.name || id.substring(0, 8) }
@@ -321,12 +324,12 @@ async function runPreflight(nodeId: string) {
     if (!preflightResult.value.all_passed) {
       const fixable = preflightResult.value.checks.some(c => !c.passed && (c.name.includes('Swap') || c.name.includes('内核') || c.name.includes('网络')))
       if (fixable) {
-        ElMessage.warning('部分检查未通过，正在自动修复...')
+        ElMessage.warning(t('feature.clusterPreflightFixing'))
         preflightResult.value = await clustersApi.preflightCheck(nodeId, true)
-        ElMessage.success('自动修复完成')
+        ElMessage.success(t('feature.clusterPreflightFixed'))
       }
     } else {
-      ElMessage.success('前置检查全部通过')
+      ElMessage.success(t('feature.clusterPreflightPassed'))
     }
   } catch {} finally { preflightLoading.value = false }
 }
@@ -345,7 +348,7 @@ async function handleCreate() {
         etcd_snapshots: form.value.etcdSnapshots,
       },
     })
-    ElMessage.success('集群创建任务已启动，安装过程请查看集群详情')
+    ElMessage.success(t('feature.clusterCreateStarted'))
     showWizard.value = false
     form.value = { name: '', version: '', serverNode: '', agentNodes: [], cni: 'canal', proxy: '', etcdSnapshots: false }
     loadData()
@@ -378,7 +381,7 @@ async function handleSaveConfig() {
   if (!currentCluster.value) return
   try {
     await clustersApi.updateClusterConfig(currentCluster.value.id, editingConfig.value)
-    ElMessage.success('配置已保存')
+    ElMessage.success(t('feature.clusterConfigSaved'))
   } catch {}
 }
 
@@ -390,7 +393,7 @@ async function handleHelmInstall() {
       repo_url: helmRepo.value || undefined,
       namespace: helmNs.value || undefined,
     })
-    ElMessage.success('Helm 安装已启动')
+    ElMessage.success(t('feature.clusterHelmStarted'))
     helmChart.value = ''
     helmRepo.value = ''
     setTimeout(() => loadHelm(currentCluster.value!.id), 5000)
@@ -403,18 +406,18 @@ async function loadRancherStatus(id: string) {
 
 async function handleInstallRancher() {
   if (!currentCluster.value || !rancherHost.value) return
-  rancherMsg.value = '正在安装 Rancher，预计需要 3-5 分钟...'
+  rancherMsg.value = t('feature.clusterRancherInstalling')
   try {
     await clustersApi.installRancher(currentCluster.value.id, rancherHost.value)
-    ElMessage.success('Rancher 安装任务已启动')
-  } catch { rancherMsg.value = '安装失败' }
+    ElMessage.success(t('feature.clusterRancherStarted'))
+  } catch { rancherMsg.value = t('feature.clusterInstallFailed') }
 }
 
 async function handleDelete(c: clustersApi.Cluster) {
-  await ElMessageBox.confirm(`确定卸载集群 ${c.name}？所有节点上的 RKE2 将被清除。`, '', { type: 'warning', confirmButtonText: '卸载', cancelButtonText: '取消' })
+  await ElMessageBox.confirm(t('feature.clusterUninstallConfirm', { name: c.name }), '', { type: 'warning', confirmButtonText: t('feature.clusterUninstall'), cancelButtonText: t('common.cancel') })
   try {
     await clustersApi.deleteCluster(c.id)
-    ElMessage.success('集群卸载中')
+    ElMessage.success(t('feature.clusterUninstalling'))
     detailVisible.value = false
     loadData()
   } catch {}
@@ -428,12 +431,12 @@ async function loadWorkloads() {
 }
 async function handleApplyYAML() {
   if (!currentCluster.value || !k8sYAML.value) return
-  try { await applyYAML(currentCluster.value.id, k8sYAML.value); ElMessage.success('YAML 已提交'); setTimeout(loadWorkloads, 3000) } catch {}
+  try { await applyYAML(currentCluster.value.id, k8sYAML.value); ElMessage.success(t('feature.clusterYamlSubmitted')); setTimeout(loadWorkloads, 3000) } catch {}
 }
 const deleteKind = ref(''); const deleteName = ref('')
 async function handleDeleteResource() {
   if (!currentCluster.value || !deleteKind.value || !deleteName.value) return
-  try { await deleteK8sResource(currentCluster.value.id, deleteKind.value, deleteName.value); ElMessage.success('删除成功'); deleteKind.value = ''; deleteName.value = ''; setTimeout(loadWorkloads, 2000) } catch {}
+  try { await deleteK8sResource(currentCluster.value.id, deleteKind.value, deleteName.value); ElMessage.success(t('feature.clusterDeleted')); deleteKind.value = ''; deleteName.value = ''; setTimeout(loadWorkloads, 2000) } catch {}
 }
 </script>
 

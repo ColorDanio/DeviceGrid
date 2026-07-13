@@ -1,36 +1,38 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div class="page-title-group"><h2>审计日志</h2><p class="page-subtitle">所有 POST/PUT/DELETE 操作记录</p></div>
+      <div class="page-title-group"><h2>{{ t('feature.auditTitle') }}</h2><p class="page-subtitle">{{ t('feature.auditSubtitle') }}</p></div>
       <div style="display:flex;gap:8px">
-        <button class="btn" @click="exportCSV">导出指标 CSV</button>
-        <button class="btn" @click="loadAudit">刷新</button>
+        <button class="btn" @click="exportCSV">{{ t('feature.exportMetrics') }}</button>
+        <button class="btn" @click="loadAudit">{{ t('common.refresh') }}</button>
       </div>
     </div>
     <div class="dg-card" style="padding:18px">
       <el-table :data="entries" stripe v-loading="loading">
-        <el-table-column label="时间" width="180">
+        <el-table-column :label="t('feature.time')" width="180">
           <template #default="{ row }">{{ row.timestamp }}</template>
         </el-table-column>
-        <el-table-column label="方法" width="70">
+        <el-table-column :label="t('feature.method')" width="70">
           <template #default="{ row }"><span class="method-badge" :class="row.method">{{ row.method }}</span></template>
         </el-table-column>
-        <el-table-column prop="path" label="路径" min-width="200" />
-        <el-table-column prop="user" label="用户" width="100" />
+        <el-table-column prop="path" :label="t('feature.path')" min-width="200" />
+        <el-table-column prop="user" :label="t('feature.user')" width="100" />
         <el-table-column prop="ip" label="IP" width="120" />
-        <el-table-column label="状态" width="70">
+        <el-table-column :label="t('feature.status')" width="70">
           <template #default="{ row }"><span :class="row.status < 400 ? 'ok' : 'err'">{{ row.status }}</span></template>
         </el-table-column>
-        <el-table-column prop="duration" label="耗时" width="80" />
+        <el-table-column prop="duration" :label="t('feature.duration')" width="80" />
       </el-table>
     </div>
   </div>
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getAuditLog, downloadMetricsCSV, type AuditEntry } from '@/api/features'
 
 const entries = ref<AuditEntry[]>([]); const loading = ref(false)
+const { t } = useI18n()
 async function loadAudit() { loading.value = true; try { entries.value = await getAuditLog() } finally { loading.value = false } }
 async function exportCSV() { await downloadMetricsCSV() }
 onMounted(() => loadAudit())

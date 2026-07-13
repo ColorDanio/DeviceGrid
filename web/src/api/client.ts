@@ -1,6 +1,11 @@
 import axios, { type AxiosInstance } from 'axios'
 import { ElMessage } from 'element-plus'
 
+export function getApiErrorMessage(error: unknown, fallback = 'Network error'): string {
+  const value = error as { response?: { data?: { message?: string } }, message?: string }
+  return value.response?.data?.message || value.message || fallback
+}
+
 const client: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 30000,
@@ -28,7 +33,7 @@ client.interceptors.response.use(
   },
   (error) => {
     if (error.response) {
-      const { status, data } = error.response
+      const { status } = error.response
       if (status === 401) {
         sessionStorage.removeItem('dg_token')
         localStorage.removeItem('dg_user')
@@ -37,10 +42,10 @@ client.interceptors.response.use(
         }
         ElMessage.error('登录已过期，请重新登录')
       } else {
-        ElMessage.error(data?.message || error.message || '网络错误')
+        ElMessage.error(getApiErrorMessage(error, '网络错误'))
       }
     } else {
-      ElMessage.error(error.message || '网络连接失败')
+      ElMessage.error(getApiErrorMessage(error, '网络连接失败'))
     }
     return Promise.reject(error)
   },

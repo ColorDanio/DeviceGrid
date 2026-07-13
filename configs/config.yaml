@@ -37,9 +37,22 @@ ssh:
   keepalive_interval: "30s"
   max_connections: 50
 
+node:
+  health_check_interval: "30s"
+  health_check_concurrency: 3
+  metrics_interval: "15s"
+  metrics_concurrency: 3
+
 deploy:
   max_concurrent: 20
   timeout: "30m"
+
+install:
+  # Optional HTTPS mirror bases for remote installer scripts.
+  # docker_mirror: "https://mirror.example.com/docker"
+  # rke2_mirror: "https://mirror.example.com"
+  docker_mirror: ""
+  rke2_mirror: ""
 
 network:
   environment: "public"  # public | internal

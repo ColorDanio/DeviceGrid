@@ -13,25 +13,36 @@ import (
 )
 
 type HealthChecker struct {
-	repos     repo.Repositories
-	transport *transport.Manager
-	hub       *ws.Hub
-	interval  time.Duration
-	mu        sync.Mutex
-	running   bool
-	cancel    context.CancelFunc
+	repos       repo.Repositories
+	transport   *transport.Manager
+	hub         *ws.Hub
+	interval    time.Duration
+	concurrency int
+	mu          sync.Mutex
+	running     bool
+	cancel      context.CancelFunc
 	// Track consecutive failures before marking offline
 	failures map[string]int
 }
 
 func NewHealthChecker(repos repo.Repositories, tm *transport.Manager, hub *ws.Hub) *HealthChecker {
 	return &HealthChecker{
-		repos:     repos,
-		transport: tm,
-		hub:       hub,
-		interval:  30 * time.Second,
-		failures:  make(map[string]int),
+		repos:       repos,
+		transport:   tm,
+		hub:         hub,
+		interval:    30 * time.Second,
+		concurrency: 3,
+		failures:    make(map[string]int),
 	}
+}
+
+func (hc *HealthChecker) SetConcurrency(n int) {
+	if n <= 0 {
+		return
+	}
+	hc.mu.Lock()
+	hc.concurrency = n
+	hc.mu.Unlock()
 }
 
 func (hc *HealthChecker) SetInterval(d time.Duration) {
@@ -55,7 +66,11 @@ func (hc *HealthChecker) Start() {
 	hc.mu.Unlock()
 
 	go hc.run(ctx)
-	slog.Info("node health checker started", "interval", hc.interval)
+	hc.mu.Lock()
+	interval := hc.interval
+	concurrency := hc.concurrency
+	hc.mu.Unlock()
+	slog.Info("node health checker started", "interval", interval, "concurrency", concurrency)
 }
 
 func (hc *HealthChecker) Stop() {
@@ -89,10 +104,27 @@ func (hc *HealthChecker) checkAll(ctx context.Context) {
 		return
 	}
 
-	var wg sync.WaitGroup
 	statuses := make([]NodeStatus, 0, len(nodes))
 	var statusMu sync.Mutex
+	hc.mu.Lock()
+	concurrency := hc.concurrency
+	hc.mu.Unlock()
+	jobs := make(chan *model.Node)
+	var wg sync.WaitGroup
+	for range concurrency {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for n := range jobs {
+				status := hc.checkNode(ctx, n)
+				statusMu.Lock()
+				statuses = append(statuses, status)
+				statusMu.Unlock()
+			}
+		}()
+	}
 
+submit:
 	for _, node := range nodes {
 		if node.Status == model.NodeStatusUntrusted {
 			statusMu.Lock()
@@ -105,16 +137,13 @@ func (hc *HealthChecker) checkAll(ctx context.Context) {
 			continue
 		}
 
-		wg.Add(1)
-		go func(n *model.Node) {
-			defer wg.Done()
-			status := hc.checkNode(ctx, n)
-			statusMu.Lock()
-			statuses = append(statuses, status)
-			statusMu.Unlock()
-		}(node)
+		select {
+		case jobs <- node:
+		case <-ctx.Done():
+			break submit
+		}
 	}
-
+	close(jobs)
 	wg.Wait()
 
 	online := 0

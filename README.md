@@ -1,5 +1,7 @@
 # DeviceGrid
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 **A practical control plane for the servers you already run.**
 
 DeviceGrid brings node inventory, live health data, remote access, Docker operations,

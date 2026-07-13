@@ -4,7 +4,7 @@
     <aside class="term-sidebar">
       <div class="sidebar-search">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input v-model="search" placeholder="搜索节点..." @keydown.enter="connectFirst" />
+        <input v-model="search" :placeholder="t('feature.terminalSearchNodes')" @keydown.enter="connectFirst" />
       </div>
       <div class="sidebar-list">
         <button v-for="n in filteredNodes" :key="n.id" class="node-row" :class="{ online: n.status === 'online', connected: isConnected(n.id) }" :disabled="n.status !== 'online'" @click="openSession(n)">
@@ -15,7 +15,7 @@
           </div>
           <span v-if="n.country_code" class="nr-flag">{{ flag(n.country_code) }}</span>
         </button>
-        <div v-if="filteredNodes.length === 0" class="sidebar-empty">无匹配节点</div>
+        <div v-if="filteredNodes.length === 0" class="sidebar-empty">{{ t('feature.terminalNoMatches') }}</div>
       </div>
     </aside>
 
@@ -29,16 +29,16 @@
             @click="switchTo(sid)" @mousedown.middle.prevent="closeSession(sid)">
             <span class="tab-dot" :class="s.status"></span>
             <span class="tab-name">{{ s.node.name }}</span>
-            <button v-if="['disconnected', 'error'].includes(s.status)" class="tab-reconnect" @click.stop="manualReconnect(sid)" title="重连">
+            <button v-if="['disconnected', 'error'].includes(s.status)" class="tab-reconnect" @click.stop="manualReconnect(sid)" :title="t('feature.terminalReconnect')" :aria-label="t('feature.terminalReconnect')">
               <svg viewBox="0 0 24 24" width="10" height="10" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2"/></svg>
             </button>
-            <button class="tab-x" @click.stop="closeSession(sid)">
+            <button class="tab-x" :aria-label="t('feature.terminalCloseSession', { name: s.node.name })" :title="t('feature.terminalCloseSession', { name: s.node.name })" @click.stop="closeSession(sid)">
               <svg viewBox="0 0 24 24" width="9" height="9" fill="none"><path d="M6 6l12 12M6 18L18 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
             </button>
           </div>
         </div>
         <div class="tabbar-tools">
-          <button v-if="sessions.size >= 2" class="tool-btn" :class="{ on: splitMode !== 'none' }" @click="toggleSplit" :title="splitMode === 'none' ? '分屏' : '取消分屏'">
+          <button v-if="sessions.size >= 2" class="tool-btn" :class="{ on: splitMode !== 'none' }" @click="toggleSplit" :title="splitMode === 'none' ? t('feature.terminalSplit') : t('feature.terminalCancelSplit')" :aria-label="splitMode === 'none' ? t('feature.terminalSplit') : t('feature.terminalCancelSplit')">
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v18" stroke="currentColor" stroke-width="1.8"/></svg>
           </button>
         </div>
@@ -67,8 +67,9 @@
       <!-- Empty -->
       <div v-else class="term-welcome">
         <svg viewBox="0 0 24 24" width="40" height="40" fill="none" style="opacity:0.15;margin-bottom:12px"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 9l3 3-3 3M12 15h4" stroke="currentColor" stroke-width="1.5"/></svg>
-        <p class="wc-title">选择左侧节点开始终端会话</p>
-        <p class="wc-sub">支持多 Tab · 分屏 · 快捷键</p>
+        <p class="wc-title">{{ nodes.length === 0 ? t('feature.terminalStartFirst') : t('feature.terminalSelectNode') }}</p>
+        <p class="wc-sub">{{ nodes.length === 0 ? t('feature.terminalFirstDescription') : t('feature.terminalDescription') }}</p>
+        <button v-if="nodes.length === 0" class="term-add-node" @click="$router.push('/nodes')">{{ t('feature.addNode') }}</button>
       </div>
     </div>
   </div>
@@ -77,6 +78,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { listNodes, type Node } from '@/api/nodes'
 import { createTerminal } from '@/utils/terminal'
 import { decodeBase64 } from '@/utils/codec'
@@ -84,6 +86,7 @@ import type { Terminal } from '@xterm/xterm'
 import type { FitAddon } from '@xterm/addon-fit'
 
 const route = useRoute()
+const { t } = useI18n()
 const nodes = ref<Node[]>([])
 const search = ref('')
 
@@ -187,7 +190,7 @@ function attachTerminal(sid: string) {
   term.attachCustomKeyEventHandler((e) => {
     if (e.ctrlKey && e.code === 'KeyF') {
       e.preventDefault()
-      const query = window.prompt('搜索终端:')
+      const query = window.prompt(t('feature.terminalSearchPrompt'))
       if (query && searchAddon) { searchAddon.findNext(query) }
       return false
     }
@@ -241,14 +244,14 @@ function tryAutoReconnect(sid: string) {
   if (!s || s.intentionalClose) return
   if (s.reconnectAttempts >= s.maxReconnect) {
     s.status = 'error'
-    if (s.term) s.term.writeln(`\x1b[33m\r\n● 连接已断开，自动重连失败 (${s.reconnectAttempts} 次)\r\n● 请检查网络后手动重连\x1b[0m`)
+    if (s.term) s.term.writeln(`\x1b[33m\r\n● ${t('feature.terminalReconnectFailed', { count: s.reconnectAttempts })}\x1b[0m`)
     return
   }
 
   s.reconnectAttempts++
   s.status = 'reconnecting'
   const delay = Math.min(1000 * Math.pow(1.5, s.reconnectAttempts), 10000)
-  if (s.term) s.term.writeln(`\x1b[33m\r\n● 连接断开，${(delay/1000).toFixed(0)}秒后重连 (第${s.reconnectAttempts}次)...\x1b[0m`)
+  if (s.term) s.term.writeln(`\x1b[33m\r\n● ${t('feature.terminalReconnectAfter', { seconds: (delay / 1000).toFixed(0), count: s.reconnectAttempts })}\x1b[0m`)
 
   setTimeout(() => {
     const check = sessions.get(sid)
@@ -265,7 +268,7 @@ function manualReconnect(sid: string) {
   s.reconnectAttempts = 0
   s.intentionalClose = false
   if (s.ws) { s.ws.close(); s.ws = null }
-  if (s.term) s.term.writeln('\x1b[36m\r\n● 正在重连...\x1b[0m')
+  if (s.term) s.term.writeln(`\x1b[36m\r\n● ${t('feature.terminalReconnecting')}\x1b[0m`)
   connectWS(sid)
 }
 
@@ -415,5 +418,14 @@ watch(splitMode, () => nextTick(() => setTimeout(fitVisible, 50)))
 .term-welcome { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   .wc-title { font-size: 15px; font-weight: 600; color: var(--dg-text-dim); margin-bottom: 4px; }
   .wc-sub { font-size: 12px; color: var(--dg-text-faint); }
+}
+.term-add-node { margin-top: 16px; padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+@media (max-width: 767px) {
+  .term-app { height: calc(100vh - 56px); flex-direction: column; }
+  .term-sidebar { width: 100%; max-height: 152px; border-right: 0; border-bottom: 1px solid var(--dg-border); }
+  .sidebar-list { display: flex; overflow-x: auto; padding: 6px 10px; gap: 6px; }
+  .node-row { min-width: 176px; margin-bottom: 0; }
+  .term-main { min-height: 0; }
 }
 </style>

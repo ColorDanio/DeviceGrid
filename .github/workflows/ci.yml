@@ -110,8 +110,14 @@ jobs:
       - name: Lint
         run: npm run lint --prefix web
 
+      - name: Test
+        run: npm run test --prefix web
+
       - name: Build
         run: cd web && npm run build
+
+      - name: Check bundle budget
+        run: npm run check:bundle --prefix web
 
       - name: Upload dist
         uses: actions/upload-artifact@v4
@@ -203,7 +209,7 @@ jobs:
           echo "  Data:   /var/lib/devicegrid/data/"
           echo ""
           echo "  sudo systemctl enable --now devicegrid"
-          echo "  Default login: admin / admin123 (change immediately!)"
+          echo "  Create or configure the administrator credentials before first sign-in."
           EOF2
           chmod 755 dist/deb/DEBIAN/postinst
           cat > dist/deb/etc/systemd/system/devicegrid.service << 'EOF3'
@@ -222,6 +228,18 @@ jobs:
           WantedBy=multi-user.target
           EOF3
           dpkg-deb --build --root-owner-group dist/deb dist/devicegrid-${VERSION}-amd64.deb
+
+      - name: Verify deb package contents
+        run: |
+          deb=$(find dist -maxdepth 1 -name 'devicegrid-*-amd64.deb' -print -quit)
+          test -n "$deb"
+          dpkg-deb --field "$deb" Package | grep -Fx devicegrid
+          dpkg-deb --field "$deb" Architecture | grep -Fx amd64
+          contents=$(dpkg-deb --contents "$deb")
+          grep -Fq './usr/local/bin/devicegrid-server' <<<"$contents"
+          grep -Fq './usr/local/bin/devicegrid-agent' <<<"$contents"
+          grep -Fq './usr/local/lib/devicegrid/configs/config.yaml' <<<"$contents"
+          grep -Fq './etc/systemd/system/devicegrid.service' <<<"$contents"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -255,7 +273,8 @@ jobs:
             sudo dpkg -i devicegrid-*.deb
             sudo systemctl enable --now devicegrid
             ```
-            Then open `http://<server-ip>:8080` — Login: `admin` / `admin123`
+            Then open `http://<server-ip>:3000` and sign in with the administrator
+            credentials configured for the deployment.
 
             ### Quick Start (binary)
             ```bash

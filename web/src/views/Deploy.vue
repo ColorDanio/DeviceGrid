@@ -1,10 +1,10 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div><h2>批量部署</h2><p class="page-subtitle">向多个节点批量推送脚本并实时查看执行结果</p></div>
+      <div><h2>{{ t('feature.deployTitle') }}</h2><p class="page-subtitle">{{ t('feature.deploySubtitle') }}</p></div>
       <div class="header-actions">
-        <button class="btn-primary" @click="showFileDialog = true">文件分发</button>
-        <button class="btn-primary" @click="showWizard = true">新建任务</button>
+        <button class="btn-primary" @click="showFileDialog = true">{{ t('feature.fileDistribution') }}</button>
+        <button class="btn-primary" @click="showWizard = true">{{ t('feature.newDeployTask') }}</button>
       </div>
     </div>
 
@@ -12,7 +12,8 @@
     <div class="dg-card task-list-card" v-loading="loading">
       <div v-if="tasks.length === 0" class="empty-state">
         <svg viewBox="0 0 24 24" width="40" height="40" fill="none" style="opacity:0.15;margin-bottom:8px"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.5"/></svg>
-        <p>暂无部署任务</p>
+        <p>{{ nodes.length === 0 ? t('feature.deployNeedsNode') : t('feature.noDeployTasks') }}</p>
+        <button v-if="nodes.length === 0" class="btn-primary" @click="$router.push('/nodes')">{{ t('feature.addNode') }}</button>
       </div>
       <div v-else class="task-list">
         <div v-for="t in tasks" :key="t.id" class="task-row" @click="viewTask(t)">
@@ -26,7 +27,7 @@
             <div class="task-name">{{ t.name }}</div>
             <div class="task-meta">
               <span class="tm-type">{{ typeLabel(t.type) }}</span>
-              <span>{{ t.node_ids?.length || 0 }} 节点</span>
+              <span>{{ $t('feature.nodeCount', { count: t.node_ids?.length || 0 }) }}</span>
               <span>{{ formatTime(t.created_at) }}</span>
             </div>
           </div>
@@ -36,10 +37,10 @@
     </div>
 
     <!-- Wizard Dialog -->
-    <el-dialog v-model="showWizard" title="新建部署任务" width="680px" top="6vh" :close-on-click-modal="false">
+    <el-dialog v-model="showWizard" :title="t('feature.newDeployTask')" width="680px" top="6vh" :close-on-click-modal="false">
       <!-- Step 1: Select Nodes -->
       <div class="wizard-step">
-        <div class="step-title"><span class="step-num">1</span>选择目标节点</div>
+        <div class="step-title"><span class="step-num">1</span>{{ t('feature.selectTargetNodes') }}</div>
         <div class="node-pick-list">
           <label v-for="n in nodes" :key="n.id" class="node-pick" :class="{ checked: selectedNodes.includes(n.id), disabled: n.status !== 'online' }">
             <input type="checkbox" :value="n.id" v-model="selectedNodes" :disabled="n.status !== 'online'" />
@@ -47,52 +48,52 @@
             <span class="np-name">{{ n.name }}</span>
             <span class="np-ip">{{ n.host }}</span>
           </label>
-          <div v-if="nodes.length === 0" class="pick-empty">暂无节点</div>
+          <div v-if="nodes.length === 0" class="pick-empty">{{ t('feature.noNodes') }}</div>
         </div>
         <div class="pick-toolbar">
-          <button class="link-btn" @click="selectAllOnline">全选在线</button>
-          <button class="link-btn" @click="selectedNodes = []">清空</button>
-          <span class="pick-count">已选 {{ selectedNodes.length }} 个</span>
+          <button class="link-btn" @click="selectAllOnline">{{ t('feature.selectAllOnline') }}</button>
+          <button class="link-btn" @click="selectedNodes = []">{{ t('feature.clear') }}</button>
+          <span class="pick-count">{{ t('feature.selectedCount', { count: selectedNodes.length }) }}</span>
         </div>
       </div>
 
       <!-- Step 2: Task Config -->
       <div class="wizard-step">
-        <div class="step-title"><span class="step-num">2</span>任务配置</div>
+        <div class="step-title"><span class="step-num">2</span>{{ t('feature.taskConfiguration') }}</div>
         <el-form label-position="top" class="wiz-form">
-          <el-form-item label="任务名称">
-            <el-input v-model="deployForm.name" placeholder="如：批量更新系统" />
+          <el-form-item :label="t('feature.taskName')">
+            <el-input v-model="deployForm.name" :placeholder="t('feature.taskExampleDeploy')" />
           </el-form-item>
           <div class="form-row">
-            <el-form-item label="类型" style="flex:1">
+            <el-form-item :label="t('feature.type')" style="flex:1">
               <el-select v-model="deployForm.type" style="width:100%">
-                <el-option label="Shell 脚本" value="script" />
-                <el-option label="安装软件包" value="package" />
+                <el-option :label="t('feature.shellScript')" value="script" />
+                <el-option :label="t('feature.installPackage')" value="package" />
               </el-select>
             </el-form-item>
-            <el-form-item label="超时(秒)" style="width:120px">
+            <el-form-item :label="t('feature.timeoutSeconds')" style="width:120px">
               <el-input-number v-model="deployForm.timeout" :min="0" :step="60" style="width:100%" />
             </el-form-item>
-            <el-form-item label="并发数" style="width:120px">
+            <el-form-item :label="t('feature.concurrency')" style="width:120px">
               <el-input-number v-model="deployForm.concurrency" :min="1" :max="50" style="width:100%" />
             </el-form-item>
           </div>
-          <el-form-item label="脚本内容">
+          <el-form-item :label="t('feature.scriptContent')">
             <textarea v-model="deployForm.payload" class="script-editor" :placeholder="deployForm.type === 'script' ? '#!/bin/bash\napt update && apt upgrade -y' : 'nginx redis-server'" spellcheck="false" rows="6"></textarea>
           </el-form-item>
         </el-form>
       </div>
       <template #footer>
-          <el-button @click="showWizard = false">取消</el-button>
-          <el-button type="primary" :loading="executing" :disabled="selectedNodes.length === 0 || !deployForm.payload" @click="executeDeploy">执行部署</el-button>
+          <el-button @click="showWizard = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="executing" :disabled="selectedNodes.length === 0 || !deployForm.payload" @click="executeDeploy">{{ t('feature.executeDeploy') }}</el-button>
         </template>
       </el-dialog>
 
       <!-- File Distribution Dialog -->
-      <el-dialog v-model="showFileDialog" title="批量文件分发" width="520px">
+      <el-dialog v-model="showFileDialog" :title="t('feature.batchFileDistribution')" width="520px">
         <div class="file-dist-form">
           <div class="fd-row">
-            <label>选择节点</label>
+            <label>{{ t('feature.selectTargetNodes') }}</label>
             <div class="fd-nodes">
               <label v-for="n in onlineNodes" :key="n.id" class="fd-node">
                 <input type="checkbox" :value="n.id" v-model="fileForm.nodeIds" /> {{ n.name }}
@@ -100,28 +101,28 @@
             </div>
           </div>
           <div class="fd-row">
-            <label>远程路径</label>
-            <input v-model="fileForm.remotePath" placeholder="/tmp/filename (留空自动)" />
+            <label>{{ t('feature.remotePath') }}</label>
+            <input v-model="fileForm.remotePath" :placeholder="t('feature.remotePathPlaceholder')" />
           </div>
           <div class="fd-row">
-            <label>选择文件</label>
+            <label>{{ t('feature.selectFile') }}</label>
             <input type="file" @change="onFileSelect" class="fd-file" />
           </div>
         </div>
         <template #footer>
-          <el-button @click="showFileDialog = false">取消</el-button>
-          <el-button type="primary" :loading="distributing" :disabled="fileForm.nodeIds.length === 0 || !selectedFile" @click="handleDistribute">分发</el-button>
+          <el-button @click="showFileDialog = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" :loading="distributing" :disabled="fileForm.nodeIds.length === 0 || !selectedFile" @click="handleDistribute">{{ t('feature.distribute') }}</el-button>
         </template>
       </el-dialog>
 
     <!-- Task Detail Dialog -->
-    <el-dialog v-model="detailVisible" :title="currentTask?.name || '任务详情'" width="860px" top="5vh" :close-on-click-modal="false">
+    <el-dialog v-model="detailVisible" :title="currentTask?.name || t('feature.taskDetail')" width="860px" top="5vh" :close-on-click-modal="false">
       <div v-if="taskDetail" class="detail-content">
         <div class="detail-summary">
-          <div class="ds-item"><span class="ds-label">状态</span><span class="ds-status" :class="taskDetail.task.status">{{ statusLabel(taskDetail.task.status) }}</span></div>
-          <div class="ds-item"><span class="ds-label">节点数</span><span>{{ taskDetail.results.length }}</span></div>
-          <div class="ds-item"><span class="ds-label">类型</span><span>{{ typeLabel(taskDetail.task.type) }}</span></div>
-          <div class="ds-item"><span class="ds-label">创建</span><span>{{ formatTime(taskDetail.task.created_at) }}</span></div>
+          <div class="ds-item"><span class="ds-label">{{ t('feature.status') }}</span><span class="ds-status" :class="taskDetail.task.status">{{ statusLabel(taskDetail.task.status) }}</span></div>
+          <div class="ds-item"><span class="ds-label">{{ t('common.nodeCount') }}</span><span>{{ taskDetail.results.length }}</span></div>
+          <div class="ds-item"><span class="ds-label">{{ t('feature.type') }}</span><span>{{ typeLabel(taskDetail.task.type) }}</span></div>
+          <div class="ds-item"><span class="ds-label">{{ t('feature.createdLabel') }}</span><span>{{ formatTime(taskDetail.task.created_at) }}</span></div>
         </div>
 
         <div class="results-grid">
@@ -131,12 +132,12 @@
               <span class="rc-name">{{ r.node_name || r.node_id.substring(0, 8) }}</span>
               <span class="rc-exit" v-if="r.status !== 'running'">exit={{ r.exit_code }}</span>
             </div>
-            <pre class="rc-output">{{ r.output || r.error || (r.status === 'running' ? '执行中...' : '无输出') }}</pre>
+            <pre class="rc-output">{{ r.output || r.error || (r.status === 'running' ? t('feature.running') : t('feature.noOutput')) }}</pre>
           </div>
         </div>
 
         <div class="detail-payload" v-if="taskDetail.task.payload">
-          <div class="dp-label">执行内容</div>
+          <div class="dp-label">{{ t('feature.executionContent') }}</div>
           <pre class="dp-code">{{ taskDetail.task.payload }}</pre>
         </div>
       </div>
@@ -146,10 +147,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { listNodes, type Node } from '@/api/nodes'
 import { listDeploys, createDeploy, getDeploy, type DeployTask } from '@/api/deploy'
 import { distributeFile } from '@/api/features'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const executing = ref(false)
@@ -175,8 +179,8 @@ const deployForm = reactive({
   concurrency: 10,
 })
 
-function statusLabel(s: string) { return ({ pending: '等待', running: '执行中', completed: '成功', failed: '失败', cancelled: '已取消' } as Record<string, string>)[s] || s }
-function typeLabel(t: string) { return ({ script: '脚本', file: '文件', package: '软件包' } as Record<string, string>)[t] || t }
+function statusLabel(s: string) { return ({ pending: t('feature.pending'), running: t('feature.running'), completed: t('feature.completed'), failed: t('feature.failed'), cancelled: t('feature.cancelled') } as Record<string, string>)[s] || s }
+function typeLabel(type: string) { return ({ script: t('feature.script'), file: t('feature.file'), package: t('feature.package') } as Record<string, string>)[type] || type }
 function formatTime(t: string) { if (!t || t.startsWith('0001')) return '-'; return new Date(t).toLocaleString() }
 
 async function loadTasks() { loading.value = true; try { tasks.value = await listDeploys() } finally { loading.value = false } }
@@ -184,19 +188,19 @@ async function loadTasks() { loading.value = true; try { tasks.value = await lis
 function selectAllOnline() { selectedNodes.value = nodes.value.filter(n => n.status === 'online').map(n => n.id) }
 
 async function executeDeploy() {
-  if (selectedNodes.value.length === 0) { ElMessage.warning('请选择至少一个节点'); return }
-  if (!deployForm.payload) { ElMessage.warning('请输入执行内容'); return }
+  if (selectedNodes.value.length === 0) { ElMessage.warning(t('feature.selectAtLeastOneNode')); return }
+  if (!deployForm.payload) { ElMessage.warning(t('feature.enterExecutionContent')); return }
   executing.value = true
   try {
     const task = await createDeploy({
-      name: deployForm.name || `部署-${Date.now()}`,
+      name: deployForm.name || t('feature.deployDefaultName', { timestamp: Date.now() }),
       type: deployForm.type,
       node_ids: selectedNodes.value,
       payload: deployForm.payload,
       timeout: deployForm.timeout,
       concurrency: deployForm.concurrency,
     })
-    ElMessage.success('任务已创建，正在执行')
+    ElMessage.success(t('feature.taskCreatedExecuting'))
     showWizard.value = false
     deployForm.name = ''; deployForm.payload = ''; selectedNodes.value = []
     loadTasks()
@@ -232,7 +236,7 @@ async function handleDistribute() {
   distributing.value = true
   try {
     const result = await distributeFile(fileForm.nodeIds, selectedFile.value, fileForm.remotePath || undefined)
-    ElMessage.success(`分发完成: 成功 ${result.success}, 失败 ${result.failed}`)
+    ElMessage.success(t('feature.distributionComplete', { success: result.success, failed: result.failed }))
     showFileDialog.value = false; selectedFile.value = null; fileForm.nodeIds = []; fileForm.remotePath = ''
   } catch {} finally { distributing.value = false }
 }

@@ -157,20 +157,10 @@ func (m *Manager) buildInstallScript(installType, configContent string, cfg Clus
 	if cfg.Version != "" {
 		versionFlag = fmt.Sprintf("INSTALL_RKE2_VERSION=%s", cfg.Version)
 	}
-	installCmd = fmt.Sprintf("%s | %s INSTALL_RKE2_TYPE=%s %s sh -",
-		installCmd, versionFlag, installType,
-		func() string {
-			if versionFlag != "" {
-				return ""
-			}
-			return ""
-		}())
-
-	// Fix: construct install command properly
 	if versionFlag != "" {
-		installCmd = fmt.Sprintf("curl -sfL https://get.rke2.io | %s INSTALL_RKE2_TYPE=%s sh -", versionFlag, installType)
+		installCmd = fmt.Sprintf("%s | %s INSTALL_RKE2_TYPE=%s sh -", installCmd, versionFlag, installType)
 	} else {
-		installCmd = fmt.Sprintf("curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE=%s sh -", installType)
+		installCmd = fmt.Sprintf("%s | INSTALL_RKE2_TYPE=%s sh -", installCmd, installType)
 	}
 
 	systemdProxyConf := ""

@@ -15,17 +15,19 @@ type DockerHandler struct {
 	repos  repo.Repositories
 	docker *docker.Manager
 	hub    hubBroadcaster
+	mirror string
 }
 
 type hubBroadcaster interface {
 	Broadcast(topic string, data interface{})
 }
 
-func NewDockerHandler(repos repo.Repositories, tm *transport.Manager, hub hubBroadcaster) *DockerHandler {
+func NewDockerHandler(repos repo.Repositories, tm *transport.Manager, hub hubBroadcaster, mirror string) *DockerHandler {
 	return &DockerHandler{
 		repos:  repos,
 		docker: docker.NewManager(tm),
 		hub:    hub,
+		mirror: mirror,
 	}
 }
 
@@ -46,6 +48,9 @@ func (h *DockerHandler) Install(c *gin.Context) {
 	nodeID := c.Param("id")
 	var opts docker.InstallOptions
 	_ = c.ShouldBindJSON(&opts)
+	if opts.Mirror == "" {
+		opts.Mirror = h.mirror
+	}
 
 	stream, err := h.docker.Install(c.Request.Context(), nodeID, opts)
 	if err != nil {

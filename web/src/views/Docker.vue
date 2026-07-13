@@ -3,11 +3,11 @@
     <!-- Left: Node sidebar -->
     <aside class="d-sidebar">
       <div class="d-sidebar-header">
-        <h3>Docker 管理</h3>
+        <h3>{{ t('nav.docker') }}</h3>
       </div>
       <div class="d-sidebar-search">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input v-model="search" placeholder="搜索节点..." />
+        <input v-model="search" :placeholder="t('feature.dockerSearchNodes')" />
       </div>
       <div class="d-node-list">
         <button v-for="n in filteredNodes" :key="n.id" class="d-node" :class="{ online: n.status === 'online', active: selectedNode === n.id }" :disabled="n.status !== 'online'" @click="selectNode(n)">
@@ -15,7 +15,7 @@
           <div class="dn-info"><span class="dn-name">{{ n.name }}</span><span class="dn-host">{{ n.host }}</span></div>
           <span v-if="n.docker_version" class="dn-badge">Docker</span>
         </button>
-        <div v-if="filteredNodes.length === 0" class="dn-empty">无匹配节点</div>
+        <div v-if="filteredNodes.length === 0" class="dn-empty">{{ t('feature.dockerNoMatches') }}</div>
       </div>
     </aside>
 
@@ -24,8 +24,9 @@
       <!-- No node selected -->
       <div v-if="!selectedNode" class="d-welcome">
         <svg viewBox="0 0 24 24" width="48" height="48" fill="none" style="opacity:0.15;margin-bottom:12px"><path d="M22 12c0-5.5-4.5-10-10-10S2 6.5 2 12s4.5 10 10 10 10-4.5 10-10z" stroke="currentColor" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <p class="dw-title">选择左侧节点管理 Docker</p>
-        <p class="dw-sub">容器 · 镜像 · Compose · 网络 · 卷</p>
+        <p class="dw-title">{{ nodes.length === 0 ? t('feature.dockerFirstNodeTitle') : t('feature.dockerSelectNode') }}</p>
+        <p class="dw-sub">{{ nodes.length === 0 ? t('feature.dockerFirstNodeDescription') : t('feature.dockerDescription') }}</p>
+        <button v-if="nodes.length === 0" class="d-btn d-btn-primary" @click="$router.push('/nodes')">{{ t('common.addNode') }}</button>
       </div>
 
       <!-- Node selected -->
@@ -37,14 +38,14 @@
             <span class="dn-bar-host">{{ currentNodeHost }}</span>
             <span class="dn-bar-docker" v-if="dockerInstalled">Docker {{ dockerVersion }}</span>
           </div>
-          <button class="dn-bar-install" v-if="!dockerInstalled && selectedNode" @click="installDocker">安装 Docker</button>
+          <button class="dn-bar-install" v-if="!dockerInstalled && selectedNode" @click="installDocker">{{ t('feature.dockerInstall') }}</button>
         </div>
 
         <!-- Tabs -->
         <div class="d-tabs">
-          <div v-for="t in tabs" :key="t.id" class="d-tab" :class="{ active: activeTab === t.id }" @click="activeTab = t.id">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" v-html="t.svg"></svg>{{ t.name }}
-            <span v-if="t.count !== undefined" class="tab-count">{{ t.count }}</span>
+          <div v-for="tab in tabs" :key="tab.id" class="d-tab" :class="{ active: activeTab === tab.id }" @click="activeTab = tab.id">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" v-html="tab.svg"></svg>{{ tab.name }}
+            <span v-if="tab.count !== undefined" class="tab-count">{{ tab.count }}</span>
           </div>
         </div>
 
@@ -53,10 +54,10 @@
           <!-- Containers -->
           <template v-if="activeTab === 'containers'">
             <div class="d-toolbar">
-              <label class="d-toggle"><input type="checkbox" v-model="showAll" @change="loadContainers" /><span>显示已停止</span></label>
-              <button class="d-btn" @click="loadContainers"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2"/></svg>刷新</button>
+              <label class="d-toggle"><input type="checkbox" v-model="showAll" @change="loadContainers" /><span>{{ t('feature.dockerShowStopped') }}</span></label>
+              <button class="d-btn" @click="loadContainers"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="2"/></svg>{{ t('common.refresh') }}</button>
             </div>
-            <div v-if="containers.length === 0" class="d-empty">暂无容器</div>
+            <div v-if="containers.length === 0" class="d-empty">{{ t('feature.dockerNoContainers') }}</div>
             <div v-else class="c-list">
               <div v-for="c in containers" :key="c.id" class="c-row" :class="{ stopped: c.state !== 'running' }">
                 <span class="c-dot" :class="c.state"></span>
@@ -68,13 +69,13 @@
                   <span v-for="(p,i) in c.ports.slice(0,3)" :key="i" class="port-chip">{{ p.host_port }}</span>
                 </div>
                 <div class="c-btns">
-                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="openContainerLogs(c)" title="查看日志"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
-                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="showStats(c)" title="资源监控"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 3v18h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14l4-4 4 3 4-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="execContainer(c)" title="进入终端"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 9l3 3-3 3M12 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
-                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="doAction(c.id,'stop')" title="停止"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg></button>
-                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="doAction(c.id,'restart')" title="重启"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="1.8"/></svg></button>
-                  <button v-if="c.state !== 'running'" class="c-btn c-start" @click.stop="doAction(c.id,'start')" title="启动"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M5 3l14 9-14 9V3z" fill="currentColor"/></svg></button>
-                  <button class="c-btn c-del" @click.stop="doAction(c.id,'remove')" title="删除"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="openContainerLogs(c)" :aria-label="t('feature.dockerViewLogs')" :title="t('feature.dockerViewLogs')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="showStats(c)" :aria-label="t('feature.dockerMonitor')" :title="t('feature.dockerMonitor')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 3v18h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M7 14l4-4 4 3 4-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="execContainer(c)" :aria-label="t('feature.dockerOpenTerminal')" :title="t('feature.dockerOpenTerminal')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 9l3 3-3 3M12 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="doAction(c.id,'stop')" :aria-label="t('feature.dockerStop')" :title="t('feature.dockerStop')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/></svg></button>
+                  <button v-if="c.state === 'running'" class="c-btn" @click.stop="doAction(c.id,'restart')" :aria-label="t('feature.dockerRestart')" :title="t('feature.dockerRestart')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                  <button v-if="c.state !== 'running'" class="c-btn c-start" @click.stop="doAction(c.id,'start')" :aria-label="t('feature.dockerStart')" :title="t('feature.dockerStart')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M5 3l14 9-14 9V3z" fill="currentColor"/></svg></button>
+                  <button class="c-btn c-del" @click.stop="doAction(c.id,'remove')" :aria-label="t('feature.dockerDelete')" :title="t('feature.dockerDelete')"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke="currentColor" stroke-width="1.8"/></svg></button>
                 </div>
               </div>
             </div>
@@ -83,14 +84,14 @@
           <!-- Images -->
           <template v-if="activeTab === 'images'">
             <div class="d-toolbar">
-              <button class="d-btn" @click="loadImages">刷新</button>
-              <button class="d-btn d-btn-primary" @click="showPull = true">拉取镜像</button>
+              <button class="d-btn" @click="loadImages">{{ t('common.refresh') }}</button>
+              <button class="d-btn d-btn-primary" @click="showPull = true">{{ t('feature.dockerPullImage') }}</button>
             </div>
-            <div v-if="images.length === 0" class="d-empty">暂无镜像</div>
+            <div v-if="images.length === 0" class="d-empty">{{ t('feature.dockerNoImages') }}</div>
             <div v-else class="c-list">
               <div v-for="img in images" :key="img.id" class="c-row">
                 <div class="c-info" style="flex:1"><div class="c-name">{{ img.tags }}</div><div class="c-meta"><span class="c-id">{{ img.id.substring(0,19) }}</span><span>{{ img.size }}</span><span>{{ img.created }}</span></div></div>
-                <div class="c-btns"><button class="c-btn c-del" @click="removeImg(img.id)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke="currentColor" stroke-width="1.8"/></svg></button></div>
+                <div class="c-btns"><button class="c-btn c-del" :aria-label="t('feature.dockerDeleteImage')" :title="t('feature.dockerDeleteImage')" @click="removeImg(img.id)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 6h18M8 6V4a2 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke="currentColor" stroke-width="1.8"/></svg></button></div>
               </div>
             </div>
           </template>
@@ -98,17 +99,17 @@
           <!-- Compose -->
           <template v-if="activeTab === 'compose'">
             <div class="d-toolbar">
-              <input v-model="composeName" placeholder="项目名称" class="compose-name" />
-              <button class="d-btn d-btn-primary" @click="composeUp">部署</button>
-              <button class="d-btn" @click="composeDown">停止</button>
+              <input v-model="composeName" :placeholder="t('feature.dockerComposeName')" class="compose-name" />
+              <button class="d-btn d-btn-primary" @click="composeUp">{{ t('feature.dockerDeploy') }}</button>
+              <button class="d-btn" @click="composeDown">{{ t('feature.dockerStop') }}</button>
             </div>
             <textarea v-model="composeContent" class="compose-editor" spellcheck="false"></textarea>
           </template>
 
           <!-- Networks -->
           <template v-if="activeTab === 'networks'">
-            <button class="d-btn" @click="loadNetworks" style="margin-bottom:12px">刷新</button>
-            <div v-if="networks.length === 0" class="d-empty">暂无网络</div>
+            <button class="d-btn" @click="loadNetworks" style="margin-bottom:12px">{{ t('common.refresh') }}</button>
+            <div v-if="networks.length === 0" class="d-empty">{{ t('feature.dockerNoNetworks') }}</div>
             <div v-else class="c-list">
               <div v-for="net in networks" :key="net.id" class="c-row"><div class="c-info" style="flex:1"><div class="c-name">{{ net.name }}</div><div class="c-meta"><span class="mono">{{ net.driver }}</span><span>{{ net.scope }}</span></div></div></div>
             </div>
@@ -116,8 +117,8 @@
 
           <!-- Volumes -->
           <template v-if="activeTab === 'volumes'">
-            <button class="d-btn" @click="loadVolumes" style="margin-bottom:12px">刷新</button>
-            <div v-if="volumes.length === 0" class="d-empty">暂无存储卷</div>
+            <button class="d-btn" @click="loadVolumes" style="margin-bottom:12px">{{ t('common.refresh') }}</button>
+            <div v-if="volumes.length === 0" class="d-empty">{{ t('feature.dockerNoVolumes') }}</div>
             <div v-else class="c-list">
               <div v-for="vol in volumes" :key="vol.name" class="c-row"><div class="c-info" style="flex:1"><div class="c-name">{{ vol.name }}</div><div class="c-meta"><span class="mono">{{ vol.driver }}</span><span>{{ vol.mountpoint }}</span></div></div></div>
             </div>
@@ -127,42 +128,43 @@
     </div>
 
     <!-- Container Terminal -->
-    <el-dialog v-model="execVisible" :title="`容器终端: ${execName}`" width="90%" top="5vh" destroy-on-close @opened="initExecTerm" @closed="closeExecTerm">
+    <el-dialog v-model="execVisible" :title="t('feature.dockerContainerTerminal', { name: execName })" width="90%" top="5vh" destroy-on-close @opened="initExecTerm" @closed="closeExecTerm">
       <div ref="execTermEl" class="exec-term"></div>
     </el-dialog>
 
     <!-- Container Logs -->
-    <el-dialog v-model="logsVisible" :title="`容器日志: ${logsName}`" width="85%" top="5vh" destroy-on-close @opened="initLogsWs" @closed="closeLogsWs">
+    <el-dialog v-model="logsVisible" :title="t('feature.dockerContainerLogs', { name: logsName })" width="85%" top="5vh" destroy-on-close @opened="initLogsWs" @closed="closeLogsWs">
       <div ref="logsEl" class="logs-viewer"></div>
     </el-dialog>
 
     <!-- Container Stats Dialog -->
-    <el-dialog v-model="statsVisible" :title="`容器监控: ${statsName}`" width="480px">
+    <el-dialog v-model="statsVisible" :title="t('feature.dockerContainerMonitor', { name: statsName })" width="480px">
       <div v-if="statsData" class="stats-grid">
         <div class="stat-item"><span class="si-label">CPU</span><span class="si-value">{{ statsData.cpu || '—' }}</span></div>
-        <div class="stat-item"><span class="si-label">内存</span><span class="si-value">{{ statsData.mem || '—' }}</span></div>
-        <div class="stat-item"><span class="si-label">内存%</span><span class="si-value">{{ statsData.mem_pct || '—' }}</span></div>
-        <div class="stat-item"><span class="si-label">网络 I/O</span><span class="si-value">{{ statsData.net_io || '—' }}</span></div>
-        <div class="stat-item"><span class="si-label">磁盘 I/O</span><span class="si-value">{{ statsData.block_io || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">{{ t('common.memory') }}</span><span class="si-value">{{ statsData.mem || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">{{ t('feature.dockerMemoryPercent') }}</span><span class="si-value">{{ statsData.mem_pct || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">{{ t('feature.dockerNetworkIo') }}</span><span class="si-value">{{ statsData.net_io || '—' }}</span></div>
+        <div class="stat-item"><span class="si-label">{{ t('feature.dockerDiskIo') }}</span><span class="si-value">{{ statsData.block_io || '—' }}</span></div>
         <div class="stat-item"><span class="si-label">PIDs</span><span class="si-value">{{ statsData.pids || '—' }}</span></div>
       </div>
-      <div v-else class="loading-text">采集中...</div>
+      <div v-else class="loading-text">{{ t('common.collecting') }}</div>
       <template #footer>
-        <button class="d-btn" @click="refreshStats" style="margin-right:auto">刷新</button>
-        <el-button @click="statsVisible = false">关闭</el-button>
+        <button class="d-btn" @click="refreshStats" style="margin-right:auto">{{ t('common.refresh') }}</button>
+        <el-button @click="statsVisible = false">{{ t('common.cancel') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- Pull Image -->
-    <el-dialog v-model="showPull" title="拉取镜像" width="400px">
+    <el-dialog v-model="showPull" :title="t('feature.dockerPullImage')" width="400px">
       <el-input v-model="pullName" placeholder="nginx:latest" />
-      <template #footer><el-button @click="showPull = false">取消</el-button><el-button type="primary" :loading="pulling" @click="doPull">拉取</el-button></template>
+      <template #footer><el-button @click="showPull = false">{{ t('common.cancel') }}</el-button><el-button type="primary" :loading="pulling" @click="doPull">{{ t('feature.dockerPull') }}</el-button></template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Terminal } from '@xterm/xterm'
 import { createTerminal } from '@/utils/terminal'
@@ -170,6 +172,8 @@ import { decodeBase64 } from '@/utils/codec'
 import { listNodes, type Node } from '@/api/nodes'
 import { listContainers, containerAction, listImages, pullImage, removeImage, listNetworks, listVolumes, getDockerInfo, getContainerStats, type ContainerInfo, type ImageInfo, type NetworkInfo, type VolumeInfo } from '@/api/docker'
 import client from '@/api/client'
+
+const { t } = useI18n()
 
 const nodes = ref<Node[]>([])
 const search = ref('')
@@ -201,11 +205,11 @@ const currentNodeName = computed(() => nodes.value.find(n => n.id === selectedNo
 const currentNodeHost = computed(() => nodes.value.find(n => n.id === selectedNode.value)?.host || '')
 
 const tabs = computed(() => [
-  { id: 'containers', name: '容器', svg: '<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>', count: containers.value.length },
-  { id: 'images', name: '镜像', svg: '<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 9h18M3 15h18" stroke="currentColor" stroke-width="1.8"/>', count: images.value.length },
+  { id: 'containers', name: t('feature.dockerContainers'), svg: '<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/>', count: containers.value.length },
+  { id: 'images', name: t('feature.dockerImages'), svg: '<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 9h18M3 15h18" stroke="currentColor" stroke-width="1.8"/>', count: images.value.length },
   { id: 'compose', name: 'Compose', svg: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8"/>' },
-  { id: 'networks', name: '网络', svg: '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M2 12h20" stroke="currentColor" stroke-width="1.8"/>', count: networks.value.length },
-  { id: 'volumes', name: '卷', svg: '<ellipse cx="12" cy="5" rx="9" ry="3" stroke="currentColor" stroke-width="1.8"/><path d="M21 5v14a9 3 0 01-18 0V5" stroke="currentColor" stroke-width="1.8"/>', count: volumes.value.length },
+  { id: 'networks', name: t('feature.dockerNetworks'), svg: '<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M2 12h20" stroke="currentColor" stroke-width="1.8"/>', count: networks.value.length },
+  { id: 'volumes', name: t('feature.dockerVolumes'), svg: '<ellipse cx="12" cy="5" rx="9" ry="3" stroke="currentColor" stroke-width="1.8"/><path d="M21 5v14a9 3 0 01-18 0V5" stroke="currentColor" stroke-width="1.8"/>', count: volumes.value.length },
 ])
 
 function selectNode(n: Node) {
@@ -227,7 +231,7 @@ async function checkDocker() {
 async function installDocker() {
   try {
     await client.post(`/nodes/${selectedNode.value}/docker/install`, {})
-    ElMessage.success('Docker 安装已启动')
+    ElMessage.success(t('feature.dockerInstallStarted'))
   } catch {}
 }
 
@@ -248,25 +252,25 @@ async function loadData() {
 }
 
 async function doAction(id: string, action: string) {
-  if (action === 'remove') await ElMessageBox.confirm('确定删除？', '', { type: 'warning' })
-  try { await containerAction(selectedNode.value, id, action); ElMessage.success('操作成功'); setTimeout(loadContainers, 500) } catch {}
+  if (action === 'remove') await ElMessageBox.confirm(t('feature.dockerDeleteConfirm'), '', { type: 'warning' })
+  try { await containerAction(selectedNode.value, id, action); ElMessage.success(t('feature.dockerActionSucceeded')); setTimeout(loadContainers, 500) } catch {}
 }
 async function removeImg(id: string) {
-  await ElMessageBox.confirm('确定删除？', '', { type: 'warning' })
-  await removeImage(selectedNode.value, id); ElMessage.success('已删除'); loadImages()
+  await ElMessageBox.confirm(t('feature.dockerDeleteConfirm'), '', { type: 'warning' })
+  await removeImage(selectedNode.value, id); ElMessage.success(t('feature.dockerDeleted')); loadImages()
 }
 async function doPull() {
   if (!pullName.value) return
   pulling.value = true
-  try { await pullImage(selectedNode.value, pullName.value); ElMessage.success('已开始拉取'); showPull.value = false; pullName.value = '' } finally { pulling.value = false }
+  try { await pullImage(selectedNode.value, pullName.value); ElMessage.success(t('feature.dockerPullStarted')); showPull.value = false; pullName.value = '' } finally { pulling.value = false }
 }
 async function composeUp() {
-  if (!composeName.value) { ElMessage.warning('请输入项目名称'); return }
-  try { await client.post(`/nodes/${selectedNode.value}/docker/compose`, { name: composeName.value, config: composeContent.value }); ElMessage.success('部署已启动') } catch {}
+  if (!composeName.value) { ElMessage.warning(t('feature.dockerEnterComposeName')); return }
+  try { await client.post(`/nodes/${selectedNode.value}/docker/compose`, { name: composeName.value, config: composeContent.value }); ElMessage.success(t('feature.dockerDeployStarted')) } catch {}
 }
 async function composeDown() {
-  if (!composeName.value) { ElMessage.warning('请输入项目名称'); return }
-  try { await client.delete(`/nodes/${selectedNode.value}/docker/compose`, { data: { name: composeName.value } }); ElMessage.success('停止已执行') } catch {}
+  if (!composeName.value) { ElMessage.warning(t('feature.dockerEnterComposeName')); return }
+  try { await client.delete(`/nodes/${selectedNode.value}/docker/compose`, { data: { name: composeName.value } }); ElMessage.success(t('feature.dockerStopExecuted')) } catch {}
 }
 
 // Container exec terminal
@@ -301,8 +305,8 @@ function initExecTerm() {
       else if (m.type === 'error') execTerm!.writeln(`\x1b[31m${m.data}\x1b[0m`)
     } catch {}
   }
-  execWs.onerror = () => { execTerm?.writeln('\x1b[31m● 连接错误\x1b[0m') }
-  execWs.onclose = () => { execTerm?.writeln('\x1b[33m\r\n● 连接已关闭\x1b[0m') }
+  execWs.onerror = () => { execTerm?.writeln(`\x1b[31m${t('feature.dockerConnectionError')}\x1b[0m`) }
+  execWs.onclose = () => { execTerm?.writeln(`\x1b[33m\r\n${t('feature.dockerConnectionClosed')}\x1b[0m`) }
 
   execTerm.onData((d) => {
     if (execWs?.readyState === WebSocket.OPEN) {
@@ -325,12 +329,12 @@ function initLogsWs() {
   if (!logsEl.value) return
   const { term } = createTerminal(logsEl.value)
   logsTerm = term
-  term.writeln('\x1b[90m● 连接日志流...\x1b[0m')
+  term.writeln(`\x1b[90m${t('feature.dockerConnectingLogs')}\x1b[0m`)
   const token = sessionStorage.getItem('dg_token') || ''; const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   logsWs = new WebSocket(`${proto}://${location.host}/ws/logs/${selectedNode.value}/${logsCid}`)
   logsWs.onopen = () => { logsWs!.send(JSON.stringify({ token: token })) }
-  logsWs.onmessage = (ev) => { try { const m = JSON.parse(ev.data); if (m.type === 'output') term.write(decodeBase64(m.data)); else if (m.type === 'done') term.writeln('\x1b[33m\r\n● 日志流结束\x1b[0m') } catch {} }
-  logsWs.onclose = () => term.writeln('\x1b[33m\r\n● 连接断开\x1b[0m')
+  logsWs.onmessage = (ev) => { try { const m = JSON.parse(ev.data); if (m.type === 'output') term.write(decodeBase64(m.data)); else if (m.type === 'done') term.writeln(`\x1b[33m\r\n${t('feature.dockerLogsEnded')}\x1b[0m`) } catch {} }
+  logsWs.onclose = () => term.writeln(`\x1b[33m\r\n${t('feature.dockerConnectionClosed')}\x1b[0m`)
 }
 function closeLogsWs() { if (logsWs) { logsWs.close(); logsWs = null } if (logsTerm) { logsTerm.dispose(); logsTerm = null } }
 
@@ -348,6 +352,14 @@ onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer); closeExecTerm()
 
 <style scoped lang="scss">
 .docker-page { display: flex; height: calc(100vh - var(--dg-header-h)); overflow: hidden; }
+
+@media (max-width: 767px) {
+  .docker-page { height: calc(100vh - 56px); flex-direction: column; }
+  .d-sidebar { width: 100%; max-height: 152px; border-right: 0; border-bottom: 1px solid var(--dg-border); }
+  .d-node-list { display: flex; overflow-x: auto; padding: 6px 10px; gap: 6px; }
+  .d-node { min-width: 176px; margin-bottom: 0; }
+  .d-main { min-height: 0; }
+}
 
 /* Sidebar */
 .d-sidebar { width: 240px; flex-shrink: 0; background: var(--dg-bg-2); border-right: 1px solid var(--dg-border); display: flex; flex-direction: column; }

@@ -22,18 +22,19 @@
             <span v-else class="loading"></span>
           </button>
         </form>
-        <div class="hint">{{ t('auth.defaultAccount') }} <strong>admin</strong> / <strong>admin123</strong></div>
+        <div v-if="initialSetup" class="hint">{{ t('auth.setupReady') }}</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { getSetupStatus } from '@/api/auth'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -41,7 +42,16 @@ const auth = useAuthStore()
 const loading = ref(false)
 const showPwd = ref(false)
 const focused = ref('')
-const form = reactive({ username: 'admin', password: 'admin123' })
+const initialSetup = ref(false)
+const form = reactive({ username: '', password: '' })
+
+onMounted(async () => {
+  try {
+    initialSetup.value = (await getSetupStatus()).initial_setup
+  } catch {
+    initialSetup.value = false
+  }
+})
 
 async function handleLogin() {
   if (!form.username || !form.password) { ElMessage.warning(t('auth.missingCredentials')); return }

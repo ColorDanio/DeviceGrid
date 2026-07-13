@@ -4,7 +4,7 @@
       <div class="page-title-group">
         <button class="back-btn" @click="$router.push('/kanban')">
           <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          返回
+          {{ t('feature.detailBack') }}
         </button>
         <h2 style="margin-top:12px; display:flex; align-items:center; gap:8px">
           {{ node.name }}
@@ -15,7 +15,7 @@
       <div class="header-actions">
         <button class="action-card" @click="$router.push(`/terminal?node=${node.id}`)">
           <div class="ac-icon"><svg viewBox="0 0 24 24" fill="none" width="18" height="18"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 9l3 3-3 3M12 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-          <span>终端</span>
+          <span>{{ t('nav.terminal') }}</span>
         </button>
         <button class="action-card" @click="$router.push('/docker')">
           <div class="ac-icon"><svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M22 12c0-5.5-4.5-10-10-10S2 6.5 2 12s4.5 10 10 10 10-4.5 10-10z" stroke="currentColor" stroke-width="1.8"/></svg></div>
@@ -23,7 +23,7 @@
         </button>
         <button class="action-card" @click="$router.push('/deploy')">
           <div class="ac-icon"><svg viewBox="0 0 24 24" fill="none" width="18" height="18"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-          <span>部署</span>
+          <span>{{ t('feature.detailDeploy') }}</span>
         </button>
       </div>
     </div>
@@ -33,19 +33,19 @@
       <div class="detail-main">
         <!-- Live Metrics -->
         <div class="dg-card s-card" v-if="metrics">
-          <h3 class="card-title">实时监控</h3>
+          <h3 class="card-title">{{ t('feature.detailLiveMetrics') }}</h3>
           <div class="live-metrics">
             <div class="lm-bar">
-              <div class="lm-header"><span class="lm-label">CPU 使用率</span><span class="lm-value">{{ metrics.cpu_usage.toFixed(2) }}%</span></div>
+              <div class="lm-header"><span class="lm-label">{{ t('feature.detailCpuUsage') }}</span><span class="lm-value">{{ metrics.cpu_usage.toFixed(2) }}%</span></div>
               <div class="lm-track"><div class="lm-fill" :class="loadLevel(metrics.cpu_usage)" :style="{ width: Math.min(metrics.cpu_usage, 100) + '%' }"></div></div>
             </div>
             <div class="lm-bar">
-              <div class="lm-header"><span class="lm-label">内存使用率</span><span class="lm-value">{{ memPct.toFixed(2) }}%</span></div>
+              <div class="lm-header"><span class="lm-label">{{ t('feature.detailMemoryUsage') }}</span><span class="lm-value">{{ memPct.toFixed(2) }}%</span></div>
               <div class="lm-track"><div class="lm-fill" :class="loadLevel(memPct)" :style="{ width: memPct + '%' }"></div></div>
               <div class="lm-detail">{{ fmtBytes(metrics.mem_used) }} / {{ fmtBytes(metrics.mem_total) }}</div>
             </div>
             <div class="lm-bar">
-              <div class="lm-header"><span class="lm-label">磁盘使用率</span><span class="lm-value">{{ diskPct.toFixed(2) }}%</span></div>
+              <div class="lm-header"><span class="lm-label">{{ t('feature.detailDiskUsage') }}</span><span class="lm-value">{{ diskPct.toFixed(2) }}%</span></div>
               <div class="lm-track"><div class="lm-fill" :class="loadLevel(diskPct)" :style="{ width: diskPct + '%' }"></div></div>
               <div class="lm-detail">{{ fmtBytes(metrics.disk_used) }} / {{ fmtBytes(metrics.disk_total) }}</div>
             </div>
@@ -54,9 +54,9 @@
               <div class="lm-track"><div class="lm-fill" :class="loadLevel(metrics.swap_used / metrics.swap_total * 100)" :style="{ width: metrics.swap_used / metrics.swap_total * 100 + '%' }"></div></div>
             </div>
             <div class="lm-stats">
-              <div class="lm-stat"><span class="ls-label">负载 (1/5/15)</span><span class="ls-val mono">{{ metrics.load_avg_1.toFixed(2) }} / {{ metrics.load_avg_5.toFixed(2) }} / {{ metrics.load_avg_15.toFixed(2) }}</span></div>
-              <div class="lm-stat" v-if="metrics.net_iface"><span class="ls-label">网络 {{ metrics.net_iface }}</span><span class="ls-val mono">↓{{ fmtRate(metrics.net_rx) }} · ↑{{ fmtRate(metrics.net_tx) }}</span></div>
-              <div class="lm-stat"><span class="ls-label">运行时间</span><span class="ls-val mono">{{ formatUptime(metrics.uptime) }}</span></div>
+              <div class="lm-stat"><span class="ls-label">{{ t('feature.detailLoad') }}</span><span class="ls-val mono">{{ metrics.load_avg_1.toFixed(2) }} / {{ metrics.load_avg_5.toFixed(2) }} / {{ metrics.load_avg_15.toFixed(2) }}</span></div>
+              <div class="lm-stat" v-if="metrics.net_iface"><span class="ls-label">{{ t('feature.detailNetwork', { interface: metrics.net_iface }) }}</span><span class="ls-val mono">↓{{ fmtRate(metrics.net_rx) }} · ↑{{ fmtRate(metrics.net_tx) }}</span></div>
+              <div class="lm-stat"><span class="ls-label">{{ t('feature.detailUptime') }}</span><span class="ls-val mono">{{ formatUptime(metrics.uptime) }}</span></div>
             </div>
           </div>
           <div v-if="metrics.gpus?.length" class="gpu-list">
@@ -70,38 +70,38 @@
 
         <!-- Hardware Info -->
         <div class="dg-card s-card">
-          <h3 class="card-title">硬件信息</h3>
+          <h3 class="card-title">{{ t('feature.detailHardware') }}</h3>
           <div class="hw-list" v-if="metrics">
-            <div class="hw-item"><span class="hw-label">CPU</span><span class="hw-value">{{ metrics.cpu_model || '未知' }}</span></div>
-            <div class="hw-item"><span class="hw-label">架构</span><span class="hw-value">{{ metrics.cpu_sockets }} 路 × {{ metrics.cpu_cores }} 核 / {{ metrics.cpu_threads }} 线程</span></div>
-            <div class="hw-item"><span class="hw-label">内存</span><span class="hw-value">{{ fmtBytes(metrics.mem_total) }}</span></div>
-            <div class="hw-item"><span class="hw-label">磁盘</span><span class="hw-value">{{ fmtBytes(metrics.disk_total) }}</span></div>
-            <div class="hw-item"><span class="hw-label">虚拟化</span><span class="hw-value">{{ virtLabel(metrics.virt_type) }}</span></div>
+            <div class="hw-item"><span class="hw-label">CPU</span><span class="hw-value">{{ metrics.cpu_model || t('feature.detailUnknown') }}</span></div>
+            <div class="hw-item"><span class="hw-label">{{ t('feature.detailArchitecture') }}</span><span class="hw-value">{{ t('feature.detailCpuTopology', { sockets: metrics.cpu_sockets, cores: metrics.cpu_cores, threads: metrics.cpu_threads }) }}</span></div>
+            <div class="hw-item"><span class="hw-label">{{ t('common.memory') }}</span><span class="hw-value">{{ fmtBytes(metrics.mem_total) }}</span></div>
+            <div class="hw-item"><span class="hw-label">{{ t('common.disk') }}</span><span class="hw-value">{{ fmtBytes(metrics.disk_total) }}</span></div>
+            <div class="hw-item"><span class="hw-label">{{ t('feature.detailVirtualization') }}</span><span class="hw-value">{{ virtLabel(metrics.virt_type) }}</span></div>
           </div>
           <div v-else class="hw-list">
-            <div class="hw-item"><span class="hw-label">操作系统</span><span class="hw-value">{{ node.os || '未检测' }}</span></div>
-            <div class="hw-item"><span class="hw-label">架构</span><span class="hw-value">{{ node.arch || '—' }}</span></div>
-            <div class="hw-item"><span class="hw-label">Docker</span><span class="hw-value">{{ node.docker_version || '未安装' }}</span></div>
+            <div class="hw-item"><span class="hw-label">{{ t('feature.detailOperatingSystem') }}</span><span class="hw-value">{{ node.os || t('feature.detailNotDetected') }}</span></div>
+            <div class="hw-item"><span class="hw-label">{{ t('feature.detailArchitecture') }}</span><span class="hw-value">{{ node.arch || '—' }}</span></div>
+            <div class="hw-item"><span class="hw-label">Docker</span><span class="hw-value">{{ node.docker_version || t('feature.detailNotInstalled') }}</span></div>
           </div>
         </div>
 
         <!-- Top Processes -->
         <div class="dg-card s-card">
-          <h3 class="card-title">资源占用 TOP 10</h3>
+          <h3 class="card-title">{{ t('feature.detailTopProcesses') }}</h3>
           <pre class="console-output" v-if="processes">{{ processes }}</pre>
-          <div v-else class="loading-text">加载中...</div>
+          <div v-else class="loading-text">{{ t('feature.detailLoading') }}</div>
         </div>
 
         <!-- Streaming Unlock Check -->
         <div class="dg-card s-card" v-if="netFeatures.enable_streaming">
           <div class="card-header-row">
-            <h3 class="card-title">流媒体解锁</h3>
+            <h3 class="card-title">{{ t('feature.detailStreaming') }}</h3>
             <div class="header-right-group">
-              <span class="last-tested" v-if="streamingTime">最后测试: {{ streamingTime }}</span>
-              <button class="check-btn" @click="runStreamingCheck" :disabled="streamingLoading">{{ streamingLoading ? '检测中...' : '开始检测' }}</button>
+              <span class="last-tested" v-if="streamingTime">{{ t('feature.detailLastTested', { time: streamingTime }) }}</span>
+              <button class="check-btn" @click="runStreamingCheck" :disabled="streamingLoading">{{ streamingLoading ? t('feature.detailChecking') : t('feature.detailStartCheck') }}</button>
             </div>
           </div>
-          <div v-if="streamingLoading" class="loading-text">正在检测流媒体解锁状态（约30秒）...</div>
+          <div v-if="streamingLoading" class="loading-text">{{ t('feature.detailStreamingLoading') }}</div>
           <div v-else-if="streamingResults.length > 0" class="streaming-grid">
             <div v-for="r in streamingResults" :key="r.name" class="stream-item" :class="r.status">
               <span class="si-icon">
@@ -113,19 +113,19 @@
               <span class="si-region" v-if="r.region">{{ r.region }}</span>
             </div>
           </div>
-          <div v-else class="check-empty">点击"开始检测"检查流媒体解锁状态</div>
+          <div v-else class="check-empty">{{ t('feature.detailStreamingEmpty') }}</div>
         </div>
 
         <!-- AI Service Check -->
         <div class="dg-card s-card" v-if="netFeatures.enable_ai">
           <div class="card-header-row">
-            <h3 class="card-title">AI 服务可用性</h3>
+            <h3 class="card-title">{{ t('feature.detailAiAvailability') }}</h3>
             <div class="header-right-group">
-              <span class="last-tested" v-if="aiTime">最后测试: {{ aiTime }}</span>
-              <button class="check-btn" @click="runAICheck" :disabled="aiLoading">{{ aiLoading ? '检测中...' : '开始检测' }}</button>
+              <span class="last-tested" v-if="aiTime">{{ t('feature.detailLastTested', { time: aiTime }) }}</span>
+              <button class="check-btn" @click="runAICheck" :disabled="aiLoading">{{ aiLoading ? t('feature.detailChecking') : t('feature.detailStartCheck') }}</button>
             </div>
           </div>
-          <div v-if="aiLoading" class="loading-text">正在检测 AI 服务可用性...</div>
+          <div v-if="aiLoading" class="loading-text">{{ t('feature.detailAiLoading') }}</div>
           <div v-else-if="aiResults.length > 0" class="streaming-grid">
             <div v-for="r in aiResults" :key="r.name" class="stream-item" :class="r.status">
               <span class="si-icon">
@@ -137,40 +137,40 @@
               <span class="si-region" v-if="r.region">{{ r.region }}</span>
             </div>
           </div>
-          <div v-else class="check-empty">点击"开始检测"检查 AI 服务可用性</div>
+          <div v-else class="check-empty">{{ t('feature.detailAiEmpty') }}</div>
         </div>
 
         <!-- Connectivity Test -->
         <div class="dg-card s-card" v-if="netFeatures.enable_connectivity">
           <div class="card-header-row">
-            <h3 class="card-title">网络联通性</h3>
+            <h3 class="card-title">{{ t('feature.detailConnectivity') }}</h3>
             <div class="header-right-group">
-              <span class="last-tested" v-if="connectivityTime">最后测试: {{ connectivityTime }}</span>
-              <button class="check-btn" @click="runConnectivityTest" :disabled="connectivityLoading">{{ connectivityLoading ? '测试中...' : '开始测试' }}</button>
+              <span class="last-tested" v-if="connectivityTime">{{ t('feature.detailLastTested', { time: connectivityTime }) }}</span>
+              <button class="check-btn" @click="runConnectivityTest" :disabled="connectivityLoading">{{ connectivityLoading ? t('feature.detailTesting') : t('feature.detailStartTest') }}</button>
             </div>
           </div>
-          <div v-if="connectivityLoading" class="loading-text">正在测试各区域网络延迟...</div>
+          <div v-if="connectivityLoading" class="loading-text">{{ t('feature.detailConnectivityLoading') }}</div>
           <div v-else-if="connectivityResults.length > 0" class="connectivity-list">
             <div v-for="r in connectivityResults" :key="r.region" class="conn-item">
               <span class="ci-region">{{ r.region }}</span>
-              <span class="ci-latency" :class="latencyClass(r.latency_ms, r.ok)">{{ r.ok ? r.latency_ms.toFixed(0) + 'ms' : '不通' }}</span>
-              <span class="ci-loss" v-if="r.ok && r.loss_pct > 0" :class="{ bad: r.loss_pct >= 30 }">{{ r.loss_pct }}%丢包</span>
+              <span class="ci-latency" :class="latencyClass(r.latency_ms, r.ok)">{{ r.ok ? r.latency_ms.toFixed(0) + 'ms' : t('feature.detailUnavailable') }}</span>
+              <span class="ci-loss" v-if="r.ok && r.loss_pct > 0" :class="{ bad: r.loss_pct >= 30 }">{{ t('feature.detailPacketLoss', { loss: r.loss_pct }) }}</span>
               <span class="ci-bar" v-if="r.ok"><span class="ci-bar-fill" :style="{ width: Math.min(r.latency_ms / 5, 100) + '%', background: latencyColor(r.latency_ms) }"></span></span>
             </div>
           </div>
-          <div v-else class="check-empty">点击"开始测试"检测各区域网络延迟</div>
+          <div v-else class="check-empty">{{ t('feature.detailConnectivityEmpty') }}</div>
         </div>
 
         <!-- Return Route (三网回程) -->
         <div class="dg-card s-card" v-if="netFeatures.enable_route">
           <div class="card-header-row">
-            <h3 class="card-title">三网回程路由</h3>
+            <h3 class="card-title">{{ t('feature.detailReturnRoute') }}</h3>
             <div class="header-right-group">
-              <span class="last-tested" v-if="routeTime">最后测试: {{ routeTime }}</span>
-              <button class="check-btn" @click="runRouteTest" :disabled="routeLoading">{{ routeLoading ? '测试中...' : '开始测试' }}</button>
+              <span class="last-tested" v-if="routeTime">{{ t('feature.detailLastTested', { time: routeTime }) }}</span>
+              <button class="check-btn" @click="runRouteTest" :disabled="routeLoading">{{ routeLoading ? t('feature.detailTesting') : t('feature.detailStartTest') }}</button>
             </div>
           </div>
-          <div v-if="routeLoading" class="loading-text">正在测试三网回程路由（电信/联通/移动，约1-2分钟）...</div>
+          <div v-if="routeLoading" class="loading-text">{{ t('feature.detailRouteLoading') }}</div>
           <div v-else-if="routeResults.length > 0" class="route-results">
             <div v-for="r in routeResults" :key="r.isp + r.city + r.ip" class="route-card">
               <div class="rc-header">
@@ -178,14 +178,14 @@
                 <span class="rc-city">{{ r.city }}</span>
                 <span class="rc-linetype" v-if="r.line_type && r.line_type !== 'Unknown'">{{ r.line_type }}</span>
                 <span class="rc-ip">{{ r.ip }}</span>
-                <span class="rc-latency" :class="latencyClass(r.latency_ms, r.latency_ms < 999)">{{ r.latency_ms < 999 ? r.latency_ms.toFixed(0) + 'ms' : '不通' }}</span>
+                <span class="rc-latency" :class="latencyClass(r.latency_ms, r.latency_ms < 999)">{{ r.latency_ms < 999 ? r.latency_ms.toFixed(0) + 'ms' : t('feature.detailUnavailable') }}</span>
               </div>
               <div class="rc-hops" v-if="r.hops && r.hops.length > 0 && !r.hops[0].includes('no traceroute')">
                 <div v-for="(hop, i) in r.hops.slice(0, 12)" :key="i" class="hop-line">{{ hop }}</div>
               </div>
             </div>
           </div>
-          <div v-else class="check-empty">点击"开始测试"检测三网回程路由</div>
+          <div v-else class="check-empty">{{ t('feature.detailRouteEmpty') }}</div>
         </div>
       </div>
 
@@ -193,16 +193,16 @@
       <div class="detail-side">
         <!-- Basic Info -->
         <div class="dg-card s-card">
-          <h3 class="card-title">基本信息</h3>
+          <h3 class="card-title">{{ t('feature.detailBasicInfo') }}</h3>
           <div class="info-list">
-            <div class="info-row"><span class="ir-label">状态</span><span class="ir-value"><span class="status-dot" :class="node.status"></span> {{ statusLabel(node.status) }}</span></div>
-            <div class="info-row"><span class="ir-label">地址</span><span class="ir-value mono">{{ node.host }}:{{ node.port }}</span></div>
-            <div class="info-row"><span class="ir-label">用户</span><span class="ir-value">{{ node.username }}</span></div>
-            <div class="info-row"><span class="ir-label">通信</span><span class="ir-value">{{ node.transport_mode === 'agent' ? 'Agent' : 'SSH' }}</span></div>
-            <div class="info-row"><span class="ir-label">认证</span><span class="ir-value">{{ node.auth_mode === 'key' ? '密钥' : '密码' }}</span></div>
-            <div class="info-row"><span class="ir-label">地区</span><span class="ir-value" v-if="node.country_code">{{ countryCodeToFlag(node.country_code) }} {{ node.country }} / {{ node.region }}</span></div>
+            <div class="info-row"><span class="ir-label">{{ t('feature.detailStatus') }}</span><span class="ir-value"><span class="status-dot" :class="node.status"></span> {{ statusLabel(node.status) }}</span></div>
+            <div class="info-row"><span class="ir-label">{{ t('feature.detailAddress') }}</span><span class="ir-value mono">{{ node.host }}:{{ node.port }}</span></div>
+            <div class="info-row"><span class="ir-label">{{ t('feature.detailUser') }}</span><span class="ir-value">{{ node.username }}</span></div>
+            <div class="info-row"><span class="ir-label">{{ t('feature.detailTransport') }}</span><span class="ir-value">{{ node.transport_mode === 'agent' ? 'Agent' : 'SSH' }}</span></div>
+            <div class="info-row"><span class="ir-label">{{ t('feature.detailAuthentication') }}</span><span class="ir-value">{{ node.auth_mode === 'key' ? t('feature.detailKey') : t('feature.detailPassword') }}</span></div>
+            <div class="info-row"><span class="ir-label">{{ t('feature.detailRegion') }}</span><span class="ir-value" v-if="node.country_code">{{ countryCodeToFlag(node.country_code) }} {{ node.country }} / {{ node.region }}</span></div>
             <div class="info-row"><span class="ir-label">ISP</span><span class="ir-value">{{ node.isp || '—' }}</span></div>
-            <div class="info-row"><span class="ir-label">Docker</span><span class="ir-value">{{ node.docker_version || '未安装' }}</span></div>
+            <div class="info-row"><span class="ir-label">Docker</span><span class="ir-value">{{ node.docker_version || t('feature.detailNotInstalled') }}</span></div>
             <div class="info-row"><span class="ir-label">RKE2</span><span class="ir-value">{{ node.rke2_role || '—' }}</span></div>
           </div>
           <div class="tag-list" v-if="node.tags?.length">
@@ -212,23 +212,23 @@
 
         <!-- Login History -->
         <div class="dg-card s-card">
-          <h3 class="card-title">最近登录</h3>
+          <h3 class="card-title">{{ t('feature.detailRecentLogins') }}</h3>
           <pre class="console-output small" v-if="logins">{{ logins }}</pre>
-          <div v-else class="loading-text">加载中...</div>
+          <div v-else class="loading-text">{{ t('feature.detailLoading') }}</div>
         </div>
 
         <!-- Timeline -->
         <div class="dg-card s-card">
-          <h3 class="card-title">时间线</h3>
+          <h3 class="card-title">{{ t('feature.detailTimeline') }}</h3>
           <el-timeline>
             <el-timeline-item :timestamp="formatTime(node.created_at)" placement="top" type="primary">
-              节点创建
+              {{ t('feature.detailNodeCreated') }}
             </el-timeline-item>
             <el-timeline-item v-if="node.last_seen_at && !node.last_seen_at.startsWith('0001')" :timestamp="formatTime(node.last_seen_at)" placement="top" type="success">
-              最后在线
+              {{ t('feature.detailLastOnline') }}
             </el-timeline-item>
             <el-timeline-item v-if="node.auth_mode === 'key'" :timestamp="formatTime(node.updated_at)" placement="top" type="info">
-              密钥授信
+              {{ t('feature.detailKeyTrusted') }}
             </el-timeline-item>
           </el-timeline>
         </div>
@@ -239,10 +239,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { getNode, getMetrics, getTopProcesses, getLoginHistory, checkStreaming, checkAI, checkConnectivity, checkReturnRoute, getNetworkConfig, type Node, type NodeMetrics, type StreamingResult, type ConnectivityResult, type RouteHop, type NetworkFeatures } from '@/api/nodes'
 
 const route = useRoute()
+const { t } = useI18n()
 const node = ref<Node | null>(null)
 const metrics = ref<NodeMetrics | null>(null)
 const processes = ref('')
@@ -265,14 +267,14 @@ const routeLoading = ref(false)
 const netFeatures = ref<NetworkFeatures>({ environment: 'public', enable_geo: true, enable_streaming: true, enable_ai: true, enable_connectivity: true, enable_route: true })
 let metricTimer: ReturnType<typeof setInterval> | null = null
 
-function statusLabel(s: string) { return ({ online: '在线', offline: '离线', untrusted: '未授信', error: '异常' } as Record<string,string>)[s] || s }
+function statusLabel(s: string) { return ({ online: t('common.online'), offline: t('common.offline'), untrusted: t('common.untrusted'), error: t('common.error') } as Record<string,string>)[s] || s }
 function formatTime(t: string) { if (!t || t.startsWith('0001')) return '—'; return new Date(t).toLocaleString() }
 function countryCodeToFlag(cc: string) { if (!cc || cc.length !== 2) return ''; const A = 0x1F1E6; return String.fromCodePoint(A + cc.charCodeAt(0) - 65) + String.fromCodePoint(A + cc.charCodeAt(1) - 65) }
-function virtLabel(v: string) { if (!v || v === 'bare-metal' || v === 'none') return '物理机'; if (v === 'kvm') return 'KVM 虚拟机'; if (v === 'docker') return 'Docker 容器'; if (v === 'lxc') return 'LXC 容器'; if (v === 'xen') return 'Xen 虚拟机'; if (v === 'vmware') return 'VMware'; return v }
+function virtLabel(v: string) { if (!v || v === 'bare-metal' || v === 'none') return t('feature.detailPhysicalMachine'); if (v === 'kvm') return t('feature.detailKvmVm'); if (v === 'docker') return t('feature.detailDockerContainer'); if (v === 'lxc') return t('feature.detailLxcContainer'); if (v === 'xen') return t('feature.detailXenVm'); if (v === 'vmware') return 'VMware'; return v }
 function fmtBytes(b: number) { if (!b) return '0B'; if (b < 1024) return b+'B'; if (b < 1048576) return (b/1024).toFixed(0)+'KB'; if (b < 1073741824) return (b/1048576).toFixed(0)+'MB'; if (b < 1099511627776) return (b/1073741824).toFixed(0)+'GB'; return (b/1099511627776).toFixed(1)+'TB' }
 function fmtRate(b: number) { if (!b) return '0B'; if (b < 1048576) return (b/1024).toFixed(1)+'KB'; if (b < 1073741824) return (b/1048576).toFixed(1)+'MB'; return (b/1073741824).toFixed(2)+'GB' }
 function loadLevel(pct: number): string { if (pct >= 85) return 'critical'; if (pct >= 70) return 'high'; if (pct >= 40) return 'medium'; return 'low' }
-function formatUptime(sec: number) { if (!sec) return '—'; const d = Math.floor(sec/86400); const h = Math.floor((sec%86400)/3600); const m = Math.floor((sec%3600)/60); if (d > 0) return `${d}天 ${h}小时`; if (h > 0) return `${h}小时 ${m}分钟`; return `${m}分钟` }
+function formatUptime(sec: number) { if (!sec) return '—'; const d = Math.floor(sec/86400); const h = Math.floor((sec%86400)/3600); const m = Math.floor((sec%3600)/60); if (d > 0) return t('feature.detailUptimeDays', { days: d, hours: h }); if (h > 0) return t('feature.detailUptimeHours', { hours: h, minutes: m }); return t('feature.detailUptimeMinutes', { minutes: m }) }
 
 const memPct = computed(() => metrics.value && metrics.value.mem_total > 0 ? metrics.value.mem_used / metrics.value.mem_total * 100 : 0)
 const diskPct = computed(() => metrics.value && metrics.value.disk_total > 0 ? metrics.value.disk_used / metrics.value.disk_total * 100 : 0)

@@ -1,15 +1,15 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div><h2>系统设置</h2><p class="page-subtitle">外观偏好、账户与用户管理</p></div>
+      <div><h2>{{ t('feature.settingsTitle') }}</h2><p class="page-subtitle">{{ t('feature.settingsSubtitle') }}</p></div>
     </div>
 
     <div class="settings-grid">
       <!-- Appearance -->
       <div class="dg-card s-card">
-        <h3 class="card-title">外观</h3>
+        <h3 class="card-title">{{ t('feature.appearance') }}</h3>
         <div class="setting-row">
-          <div class="setting-label"><span class="ls-name">主题模式</span><span class="ls-desc">深色 / 浅色 / 跟随系统</span></div>
+          <div class="setting-label"><span class="ls-name">{{ t('feature.themeMode') }}</span><span class="ls-desc">{{ t('feature.themeModeDescription') }}</span></div>
           <div class="mode-tabs">
             <button v-for="m in modes" :key="m.id" class="mode-tab" :class="{ active: theme.mode === m.id }" @click="theme.setMode(m.id)">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" v-html="m.icon"></svg>{{ m.label }}
@@ -17,7 +17,7 @@
           </div>
         </div>
         <div class="setting-row">
-          <div class="setting-label"><span class="ls-name">主题色</span><span class="ls-desc">界面强调色和整体配色</span></div>
+          <div class="setting-label"><span class="ls-name">{{ t('feature.themeColor') }}</span><span class="ls-desc">{{ t('feature.themeColorDescription') }}</span></div>
           <div class="accent-grid">
             <button v-for="(a, key) in accents" :key="key" class="accent-swatch" :class="{ active: theme.accent === key }" :style="{ '--swatch': a.primary }" :title="a.name" @click="theme.setAccent(key as any)">
               <span class="swatch-dot"></span>
@@ -28,25 +28,25 @@
 
       <!-- Profile -->
       <div class="dg-card s-card">
-        <h3 class="card-title">当前账户</h3>
+        <h3 class="card-title">{{ t('feature.currentAccount') }}</h3>
         <div class="profile-row">
           <div class="profile-avatar">{{ auth.username.charAt(0).toUpperCase() }}</div>
           <div><div class="profile-name">{{ auth.username }}</div><div class="profile-role">{{ roleLabel }}</div></div>
         </div>
         <div class="info-list">
-          <div class="info-row"><span class="ir-label">角色</span><span class="ir-value">{{ roleLabel }}</span></div>
-          <div class="info-row"><span class="ir-label">令牌</span><span class="ir-value mono">••••••••</span></div>
+          <div class="info-row"><span class="ir-label">{{ t('feature.role') }}</span><span class="ir-value">{{ roleLabel }}</span></div>
+          <div class="info-row"><span class="ir-label">{{ t('feature.token') }}</span><span class="ir-value mono">••••••••</span></div>
         </div>
       </div>
 
       <!-- System Info -->
       <div class="dg-card s-card">
-        <h3 class="card-title">系统信息</h3>
+        <h3 class="card-title">{{ t('feature.systemInfo') }}</h3>
         <div class="info-list">
-          <div class="info-row"><span class="ir-label">后端</span><span class="ir-value">Go + Gin</span></div>
-          <div class="info-row"><span class="ir-label">数据库</span><span class="ir-value">SQLite</span></div>
-          <div class="info-row"><span class="ir-label">通信</span><span class="ir-value">SSH + Agent gRPC</span></div>
-          <div class="info-row"><span class="ir-label">版本</span><span class="ir-value">v1.0.0</span></div>
+          <div class="info-row"><span class="ir-label">{{ t('feature.backend') }}</span><span class="ir-value">Go + Gin</span></div>
+          <div class="info-row"><span class="ir-label">{{ t('feature.database') }}</span><span class="ir-value">SQLite</span></div>
+          <div class="info-row"><span class="ir-label">{{ t('feature.transport') }}</span><span class="ir-value">SSH + Agent gRPC</span></div>
+          <div class="info-row"><span class="ir-label">{{ t('feature.version') }}</span><span class="ir-value">v1.0.0</span></div>
         </div>
       </div>
     </div>
@@ -54,23 +54,23 @@
     <!-- User Management -->
     <div class="dg-card user-panel">
       <div class="panel-header">
-        <h3 class="card-title">用户管理</h3>
+        <h3 class="card-title">{{ t('feature.userManagement') }}</h3>
         <button class="btn-primary" @click="showCreateDialog">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          添加用户
+          {{ t('feature.addUser') }}
         </button>
       </div>
       <div v-loading="usersLoading" class="user-table-wrap">
-        <div v-if="users.length === 0 && !usersLoading" class="empty-text">暂无用户</div>
+        <div v-if="users.length === 0 && !usersLoading" class="empty-text">{{ t('feature.noUsers') }}</div>
         <div v-else class="user-list">
           <div v-for="u in users" :key="u.id" class="user-row">
             <div class="u-avatar" :style="{ background: avatarColor(u.username) }">{{ u.username.charAt(0).toUpperCase() }}</div>
             <div class="u-info">
-              <div class="u-name">{{ u.username }}<span v-if="u.id === currentUserId" class="u-self">（你）</span></div>
-              <div class="u-meta">创建于 {{ formatTime(u.created_at) }}</div>
+              <div class="u-name">{{ u.username }}<span v-if="u.id === currentUserId" class="u-self">{{ t('feature.currentUser') }}</span></div>
+              <div class="u-meta">{{ t('feature.createdAt', { time: formatTime(u.created_at) }) }}</div>
             </div>
-            <span class="u-role-badge" :class="u.role">{{ roleMap[u.role] || u.role }}</span>
-            <button v-if="u.id !== currentUserId" class="u-delete" @click="handleDelete(u)">
+            <span class="u-role-badge" :class="u.role">{{ t(`roles.${u.role}`) }}</span>
+            <button v-if="u.id !== currentUserId" class="u-delete" :title="t('feature.deleteUser')" :aria-label="t('feature.deleteUser')" @click="handleDelete(u)">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" stroke="currentColor" stroke-width="1.8"/></svg>
             </button>
           </div>
@@ -79,25 +79,25 @@
     </div>
 
     <!-- Create User Dialog -->
-    <el-dialog v-model="createVisible" title="添加用户" width="420px">
+    <el-dialog v-model="createVisible" :title="t('feature.addUser')" width="420px">
       <el-form label-position="top" class="user-form">
-        <el-form-item label="用户名">
-          <el-input v-model="newUser.username" placeholder="输入用户名" />
+        <el-form-item :label="t('feature.username')">
+          <el-input v-model="newUser.username" :placeholder="t('feature.enterUsername')" />
         </el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="newUser.password" type="password" show-password placeholder="输入密码" />
+        <el-form-item :label="t('feature.password')">
+          <el-input v-model="newUser.password" type="password" show-password :placeholder="t('feature.enterPassword')" />
         </el-form-item>
-        <el-form-item label="角色">
+        <el-form-item :label="t('feature.role')">
           <el-select v-model="newUser.role" style="width: 100%">
-            <el-option label="管理员 (完全权限)" value="admin" />
-            <el-option label="操作员 (操作权限)" value="operator" />
-            <el-option label="观察者 (只读)" value="viewer" />
+            <el-option :label="t('feature.adminRole')" value="admin" />
+            <el-option :label="t('feature.operatorRole')" value="operator" />
+            <el-option :label="t('feature.viewerRole')" value="viewer" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="handleCreate">创建</el-button>
+        <el-button @click="createVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="creating" @click="handleCreate">{{ t('feature.create') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -105,23 +105,24 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, ACCENTS } from '@/stores/theme'
 import { listUsers, createUser, deleteUser, type User } from '@/api/users'
 
 const auth = useAuthStore()
+const { t } = useI18n()
 const theme = useThemeStore()
 const accents = ACCENTS
 
 const modes = [
-  { id: 'dark' as const, label: '深色', icon: '<path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" stroke="currentColor" stroke-width="1.8"/>' },
-  { id: 'light' as const, label: '浅色', icon: '<circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
-  { id: 'system' as const, label: '跟随', icon: '<rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M15 3v18" stroke="currentColor" stroke-width="1.8"/>' },
+  { id: 'dark' as const, label: t('feature.modeDark'), icon: '<path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" stroke="currentColor" stroke-width="1.8"/>' },
+  { id: 'light' as const, label: t('feature.modeLight'), icon: '<circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
+  { id: 'system' as const, label: t('feature.modeSystem'), icon: '<rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M15 3v18" stroke="currentColor" stroke-width="1.8"/>' },
 ]
 
-const roleMap: Record<string, string> = { admin: '管理员', operator: '操作员', viewer: '观察者' }
-const roleLabel = computed(() => roleMap[auth.role] || auth.role)
+const roleLabel = computed(() => t(`roles.${auth.role}`))
 
 const users = ref<User[]>([])
 const usersLoading = ref(false)
@@ -144,20 +145,20 @@ async function loadUsers() {
 function showCreateDialog() { newUser.value = { username: '', password: '', role: 'operator' }; createVisible.value = true }
 
 async function handleCreate() {
-  if (!newUser.value.username || !newUser.value.password) { ElMessage.warning('请填写用户名和密码'); return }
+  if (!newUser.value.username || !newUser.value.password) { ElMessage.warning(t('feature.enterCredentials')); return }
   creating.value = true
   try {
     await createUser(newUser.value.username, newUser.value.password, newUser.value.role)
-    ElMessage.success('用户创建成功')
+    ElMessage.success(t('feature.userCreated'))
     createVisible.value = false
     loadUsers()
   } catch {} finally { creating.value = false }
 }
 
 async function handleDelete(u: User) {
-  await ElMessageBox.confirm(`确定删除用户 ${u.username}？`, '', { type: 'warning' })
+  await ElMessageBox.confirm(t('feature.deleteUserConfirm', { name: u.username }), '', { type: 'warning' })
   await deleteUser(u.id)
-  ElMessage.success('已删除')
+  ElMessage.success(t('feature.deleted'))
   loadUsers()
 }
 

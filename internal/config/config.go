@@ -19,6 +19,7 @@ type Config struct {
 	SSH      SSHConfig      `mapstructure:"ssh"`
 	Node     NodeConfig     `mapstructure:"node"`
 	Deploy   DeployConfig   `mapstructure:"deploy"`
+	Install  InstallConfig  `mapstructure:"install"`
 	Network  NetworkConfig  `mapstructure:"network"`
 }
 
@@ -81,14 +82,21 @@ type SSHConfig struct {
 }
 
 type NodeConfig struct {
-	HealthCheckInterval time.Duration `mapstructure:"health_check_interval"`
-	MetricsInterval     time.Duration `mapstructure:"metrics_interval"`
-	MetricsConcurrency  int           `mapstructure:"metrics_concurrency"`
+	HealthCheckInterval    time.Duration `mapstructure:"health_check_interval"`
+	HealthCheckConcurrency int           `mapstructure:"health_check_concurrency"`
+	MetricsInterval        time.Duration `mapstructure:"metrics_interval"`
+	MetricsConcurrency     int           `mapstructure:"metrics_concurrency"`
 }
 
 type DeployConfig struct {
 	MaxConcurrent int           `mapstructure:"max_concurrent"`
 	Timeout       time.Duration `mapstructure:"timeout"`
+}
+
+// InstallConfig controls optional mirror endpoints for remote installer scripts.
+type InstallConfig struct {
+	DockerMirror string `mapstructure:"docker_mirror"`
+	RKE2Mirror   string `mapstructure:"rke2_mirror"`
 }
 
 type NetworkConfig struct {
@@ -183,6 +191,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ssh.max_connections", 50)
 
 	v.SetDefault("node.health_check_interval", "30s")
+	v.SetDefault("node.health_check_concurrency", 3)
 	v.SetDefault("node.metrics_interval", "15s")
 	v.SetDefault("node.metrics_concurrency", 3)
 

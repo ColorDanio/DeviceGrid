@@ -1,6 +1,6 @@
 # DeviceGrid Task Tracker
 
-Last reviewed: 2026-07-11
+Last reviewed: 2026-07-12
 
 This is the active development tracker. `PLAN.md` records the original delivery plan,
 but its phase-level checkboxes are no longer in sync with the implemented code; use
@@ -37,70 +37,76 @@ this file for current priorities until that plan is reconciled.
 - [ ] No integration suite validates SSH, Agent gRPC, Docker, or RKE2 workflows.
 - [ ] Backend coverage has not been measured in the current toolchain because its
   `covdata` tool is unavailable; rerun with the Go version declared in `go.mod`.
-- [ ] The login screen advertises and pre-fills `admin/admin123`, but that credential
-  is only valid when a new debug database is seeded without an override.
+- [x] Initial login guidance is server-reported and does not pre-fill or advertise a password.
 - [ ] Fleet views duplicate polling: the layout fetches nodes every 15s, Kanban
   fetches nodes every 30s plus every online node's metrics every 20s, and Nodes
   fetches nodes and metrics every 10s.
-- [ ] Health checks launch one goroutine per managed node without a concurrency cap.
-- [ ] The current production build has a 1.2 MB shared JavaScript chunk (365 KB gzip)
-  and a 524 KB terminal codec chunk (139 KB gzip).
-- [ ] Playwright UX audit: at a 390px viewport, the fixed desktop sidebar leaves too
-  little workspace; page titles wrap vertically, header status pills crowd the title,
-  and empty-state command buttons become narrow vertical labels.
-- [ ] Playwright UX audit: the empty dashboard gives no route to "添加节点"; Docker
-  and deployment identify their node prerequisite but do not link users to node setup.
-- [ ] Playwright UX audit: icon-only controls, including the sidebar collapse and
-  dashboard refresh buttons, have no accessible name in the browser accessibility tree.
+- [x] Health checks use a configurable bounded worker pool.
+- [ ] The current production build has a 1.09 MB shared JavaScript chunk (357 KB gzip)
+  and a 524 KB terminal codec chunk (139 KB gzip); route-level loading remains unmeasured.
+- [x] Playwright UX audit mobile-shell findings were resolved and verified at 390px and 768px.
+- [x] Empty dashboard and dependent feature views route operators to node setup.
+- [x] Shared and destructive icon-only controls have accessible names and tooltips.
 
 ## Next Priorities
 
-1. [ ] Deliver a mobile-first application shell.
-   - At narrow widths, replace the persistent sidebar with an accessible overlay drawer.
-   - Keep the title, status summary, and primary commands on one readable line or
-     explicitly stack them without clipping.
-   - Verify dashboard, Nodes, Deploy, Docker, and Terminal at 390px and 768px.
-2. [ ] Build an actionable first-fleet onboarding path.
-   - Replace zero-value dashboard KPIs with a concise empty state and "添加节点" CTA.
-   - Link Docker, Deploy, Terminal, and SFTP prerequisite states to node setup.
-   - Split node onboarding into connect, verify, trust, and save steps with clear errors.
-3. [ ] Add accessible names and tooltips to icon-only controls.
-   - Cover navigation collapse, refresh, theme, close, and destructive icon actions.
-   - Use Playwright accessibility snapshots to prevent regressions.
-4. [ ] Make initial login guidance truthful and secure.
-   - Do not pre-fill or advertise a default password after the first seeded account.
-   - Display one-time setup guidance only when the server explicitly reports it.
-   - Preserve a smooth local-development path without weakening production onboarding.
-5. [ ] Complete the i18n rollout across feature views.
-   - Migrate Nodes, Docker, Deploy, RKE2, Terminal, SFTP, Settings, Automation,
-     SSH keys, Compare, and Audit to the locale catalog.
-   - Cover both locales in frontend tests and keep API payloads locale-neutral.
-6. [ ] Replace fleet polling with a shared, visibility-aware state source.
-   - Subscribe Kanban and node status views to the existing WebSocket topics.
-   - Share node and metric data between layout, Kanban, and Nodes.
-   - Fall back to bounded polling only while the socket is disconnected or the tab is visible.
-7. [ ] Bound health-check concurrency for larger fleets.
-   - Add a configurable worker limit analogous to `node.metrics_concurrency`.
-   - Ensure cancellation and shutdown do not leave blocked goroutines.
-8. [ ] Establish a frontend performance budget and reduce initial payload.
-   - Stop globally registering every Element Plus icon.
-   - Measure route-level loading before changing terminal/xterm chunking.
-   - Fail CI when first-load JavaScript or CSS exceeds the agreed budget.
-9. [ ] Reconcile `PLAN.md` with the implemented code and this tracker.
-   - Mark completed phases accurately.
-   - Keep only verified remaining work in Phase 8.
-10. [ ] Add frontend testing with Vitest and Vue Test Utils.
-   - Start with auth store, API error handling, and a high-traffic view.
-   - Add the test command to `web/package.json`, `Makefile`, and CI.
+1. [x] Deliver a mobile-first application shell.
+   - Replaced the persistent narrow-screen sidebar with an accessible overlay drawer.
+   - Stacked page actions and contained wide tables within their cards on mobile.
+   - Verified Dashboard, Nodes, Deploy, Docker, and Terminal at 390px; verified
+     the shared desktop/tablet shell across the same routes at 768px with Playwright.
+2. [x] Build an actionable first-fleet onboarding path.
+   - [x] Replaced zero-value dashboard KPIs with a concise empty state and "添加节点" CTA.
+   - [x] Linked Docker, Deploy, Terminal, and SFTP prerequisite states to node setup.
+   - [x] Split node onboarding into connect, verify, trust, and save steps with clear errors.
+3. [x] Add accessible names and tooltips to icon-only controls.
+   - [x] Covered navigation collapse, refresh, theme, close, and destructive icon actions.
+   - [x] Verified shared-control names through Playwright accessibility snapshots; the
+     remaining terminal close and Docker image-delete controls now provide labels and titles.
+4. [x] Make initial login guidance truthful and secure.
+   - [x] Removed pre-filled and advertised default credentials from the login page.
+   - [x] Added the server-reported, one-time `/api/auth/setup` status; it clears after
+     the first successful sign-in or on the next process start.
+   - [x] Kept local development smooth with neutral setup guidance while keeping
+     deployment credentials out of the browser UI.
+5. [x] Complete the i18n rollout across feature views.
+   - [x] Migrated Terminal, SFTP, SSH keys, Compare, Audit, Settings, Automation, Deploy, Docker, RKE2, Nodes, and Node Detail to the locale catalog.
+   - [x] All feature-view UI strings now use the locale catalog; backend payloads and protocol values remain locale-neutral.
+   - [x] Vitest verifies representative Docker, RKE2, Nodes, and Node Detail labels in both locales.
+6. [x] Replace fleet polling with a shared, visibility-aware state source.
+   - [x] Shared node and metric data between the layout, Kanban, and Nodes through a Pinia fleet store.
+   - [x] Subscribed to the authenticated `kanban` and per-node `metrics-*` WebSocket topics.
+   - [x] Uses visibility-aware 20-second polling only while the socket is disconnected; Vitest covers auth framing, subscription, and metric messages.
+7. [x] Bound health-check concurrency for larger fleets.
+   - [x] Added `node.health_check_concurrency`, defaulting to three workers.
+   - [x] Health-check workers stop accepting jobs when the checker context is cancelled,
+     then the scheduler waits for the bounded pool to return.
+8. [x] Establish a frontend performance budget and reduce initial payload.
+   - [x] Stopped globally registering every Element Plus icon; the shared client chunk
+     fell from 1.19 MB / 377 KB gzip to 1.04 MB / 338 KB gzip.
+   - [x] `make route-report` measures manifest-based gzip dependency closures; Docker is 486 KB and Terminal is 510 KB because both include the 139 KB codec chunk.
+   - [x] CI enforces initial-load budgets of 370 KB gzip JavaScript and 60 KB gzip CSS.
+9. [x] Reconcile `PLAN.md` with the implemented code and this tracker.
+   - Clarified that Phases 1–7 granular lists are historical; verified milestone
+     status, Phase 8, and this tracker are the maintained sources of truth.
+   - Updated Phase 8 frontend component-test status; remaining Phase 8 items
+     match the production-feature, integration, coverage, and release-preflight work below.
+10. [x] Add frontend testing with Vitest and Vue Test Utils.
+   - [x] Added focused coverage for the auth store, API error-message handling, and
+     the dashboard's first-fleet empty state.
+   - [x] Added `npm run test`, `make test-web`, and the frontend CI test step.
 11. [ ] Add integration coverage for transport boundaries.
    - Exercise SSH execution and SFTP against an ephemeral target.
    - Exercise Agent gRPC tunnel request/response behavior.
 12. [ ] Close remaining production features from `PLAN.md` Phase 8.
-   - Agent-backed PTY terminal.
+   - [x] Agent-backed PTY terminal is implemented through the connected tunnel transport and selected by terminal WebSocket handlers.
    - Docker operations through the Agent local API.
-   - Configurable Docker and RKE2 mirror URLs.
-13. [ ] Add release preflight checks.
-   - Verify package startup, embedded frontend serving, and the Debian artifact.
+   - [x] Configurable Docker registry and RKE2 installer mirror URLs, with RKE2 installer-script coverage.
+13. [x] Add release preflight checks.
+   - [x] `make release-preflight` starts the release server binary on an isolated port
+     and verifies `/healthz` plus embedded SPA fallback serving.
+   - [x] Release CI verifies the Debian package metadata and expected server, agent,
+     config, and systemd paths before publishing artifacts.
 
 ## Working Rules
 

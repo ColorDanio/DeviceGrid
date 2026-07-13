@@ -60,6 +60,7 @@ Set `server.mode` to `release` for production. Release mode requires both
 | `database.sqlite.path` | `./data/device_grid.db` | SQLite data file |
 | `agent.grpc_port` | `9090` | Agent tunnel listener |
 | `ssh.max_connections` | `50` | SSH pool limit per node |
+| `node.health_check_concurrency` | `3` | Maximum simultaneous node health checks |
 | `deploy.max_concurrent` | `20` | Parallel deployment worker limit |
 | `network.environment` | `public` | Use `internal` to disable public-network diagnostics |
 

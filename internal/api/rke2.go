@@ -14,16 +14,18 @@ import (
 )
 
 type RKE2Handler struct {
-	repos repo.Repositories
-	rke2  *rke2.Manager
-	hub   hubBroadcaster
+	repos  repo.Repositories
+	rke2   *rke2.Manager
+	hub    hubBroadcaster
+	mirror string
 }
 
-func NewRKE2Handler(repos repo.Repositories, tm *transport.Manager, hub hubBroadcaster) *RKE2Handler {
+func NewRKE2Handler(repos repo.Repositories, tm *transport.Manager, hub hubBroadcaster, mirror string) *RKE2Handler {
 	return &RKE2Handler{
-		repos: repos,
-		rke2:  rke2.NewManager(repos, tm),
-		hub:   hub,
+		repos:  repos,
+		rke2:   rke2.NewManager(repos, tm),
+		hub:    hub,
+		mirror: mirror,
 	}
 }
 
@@ -58,6 +60,9 @@ func (h *RKE2Handler) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		BadRequest(c, "invalid request: "+err.Error())
 		return
+	}
+	if req.Config.InstallMirror == "" {
+		req.Config.InstallMirror = h.mirror
 	}
 
 	clusterID := uuid.NewString()

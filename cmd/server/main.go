@@ -92,7 +92,8 @@ func main() {
 	}
 	slog.Info("database connected")
 
-	if err := api.EnsureDefaultUser(repos); err != nil {
+	initialSetup, err := api.EnsureDefaultUser(repos)
+	if err != nil {
 		slog.Error("ensure default user", "error", err)
 	}
 
@@ -136,6 +137,7 @@ func main() {
 
 	healthChecker := node.NewHealthChecker(repos, transportMgr, hub)
 	healthChecker.SetInterval(cfg.Node.HealthCheckInterval)
+	healthChecker.SetConcurrency(cfg.Node.HealthCheckConcurrency)
 	healthChecker.Start()
 	defer healthChecker.Stop()
 
@@ -169,7 +171,7 @@ func main() {
 	defer cronSched.Stop()
 
 	jm := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpire)
-	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, alertMgr, cronSched)
+	router := api.NewRouter(repos, jm, enc, transportMgr, hub, sshMgr, metricsCache, cfg.Network, cfg.Install, alertMgr, cronSched, initialSetup)
 	router.SetCORSOrigins(cfg.Server.CORSOrigins)
 	router.SetDeployMaxConcurrency(cfg.Deploy.MaxConcurrent)
 	engine := router.Setup(cfg.Server.Mode)

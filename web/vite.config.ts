@@ -5,6 +5,9 @@ import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import path from 'path'
 
+const apiTarget = process.env.DG_API_PROXY_TARGET || 'http://localhost:3000'
+const wsTarget = apiTarget.replace(/^http/, 'ws')
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -24,11 +27,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:3000',
+        target: wsTarget,
         ws: true,
       },
     },
@@ -36,5 +39,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    manifest: true,
   },
 })

@@ -2,8 +2,8 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title-group">
-        <h2>自动化运维</h2>
-        <p class="page-subtitle">告警规则与定时任务管理</p>
+        <h2>{{ t('feature.automationTitle') }}</h2>
+        <p class="page-subtitle">{{ t('feature.automationSubtitle') }}</p>
       </div>
     </div>
 
@@ -11,24 +11,24 @@
     <div class="auto-tabs">
       <div class="auto-tab" :class="{active: tab==='alerts'}" @click="tab='alerts'">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        告警规则
+        {{ t('feature.alertRules') }}
       </div>
       <div class="auto-tab" :class="{active: tab==='cron'}" @click="tab='cron'">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        定时任务
+        {{ t('feature.scheduledTasks') }}
       </div>
     </div>
 
     <!-- Alerts Tab -->
     <div v-if="tab==='alerts'" class="tab-content">
       <div class="section-header">
-        <h3>告警规则</h3>
-        <button class="btn-primary" @click="showAlertDialog = true">添加规则</button>
+        <h3>{{ t('feature.alertRules') }}</h3>
+        <button class="btn-primary" @click="showAlertDialog = true">{{ t('feature.addRule') }}</button>
       </div>
       <div v-loading="alertsLoading" class="rule-list">
         <div v-for="r in alertRules" :key="r.id" class="rule-card dg-card">
           <div class="rc-left">
-            <span class="rc-enabled" :class="{on: r.enabled}">{{ r.enabled ? '启用' : '禁用' }}</span>
+            <span class="rc-enabled" :class="{on: r.enabled}">{{ r.enabled ? t('feature.enabled') : t('feature.disabled') }}</span>
             <div>
               <div class="rc-name">{{ r.name }}</div>
               <div class="rc-desc">{{ metricLabel(r.metric) }} {{ r.operator }} {{ r.threshold }}{{ r.metric === 'node_offline' ? '' : '%' }}</div>
@@ -36,36 +36,36 @@
           </div>
           <div class="rc-right">
             <span v-if="r.webhook_url" class="rc-webhook">Webhook ✓</span>
-            <span class="rc-cooldown">冷却 {{ r.cooldown_min }}分钟</span>
-            <button class="rc-delete" @click="deleteRule(r.id)">删除</button>
+            <span class="rc-cooldown">{{ t('feature.cooldownMinutes', { minutes: r.cooldown_min }) }}</span>
+            <button class="rc-delete" @click="deleteRule(r.id)">{{ t('feature.deleteFile') }}</button>
           </div>
         </div>
-        <div v-if="!alertsLoading && alertRules.length === 0" class="empty-text">暂无告警规则</div>
+        <div v-if="!alertsLoading && alertRules.length === 0" class="empty-text">{{ t('feature.noAlertRules') }}</div>
       </div>
 
       <!-- Alert Dialog -->
-      <el-dialog v-model="showAlertDialog" title="添加告警规则" width="480px">
+      <el-dialog v-model="showAlertDialog" :title="t('feature.addAlertRule')" width="480px">
         <div class="alert-form">
-          <div class="af-row"><label>规则名称</label><input v-model="alertForm.name" placeholder="如：CPU 高负载告警" /></div>
-          <div class="af-row"><label>监控指标</label>
+          <div class="af-row"><label>{{ t('feature.ruleName') }}</label><input v-model="alertForm.name" :placeholder="t('feature.alertRuleExample')" /></div>
+          <div class="af-row"><label>{{ t('feature.metric') }}</label>
             <select v-model="alertForm.metric">
-              <option value="cpu">CPU 使用率</option>
-              <option value="mem">内存使用率</option>
-              <option value="disk">磁盘使用率</option>
-              <option value="node_offline">节点离线</option>
+              <option value="cpu">{{ t('feature.cpuUsage') }}</option>
+              <option value="mem">{{ t('feature.memoryUsage') }}</option>
+              <option value="disk">{{ t('feature.diskUsage') }}</option>
+              <option value="node_offline">{{ t('feature.nodeOffline') }}</option>
             </select>
           </div>
           <div class="af-row" v-if="alertForm.metric !== 'node_offline'">
-            <label>阈值</label>
-            <div class="af-inline"><select v-model="alertForm.operator"><option value=">">大于</option><option value="<">小于</option></select><input type="number" v-model.number="alertForm.threshold" placeholder="90" />%</div>
+            <label>{{ t('feature.threshold') }}</label>
+            <div class="af-inline"><select v-model="alertForm.operator"><option value=">">{{ t('feature.greaterThan') }}</option><option value="<">{{ t('feature.lessThan') }}</option></select><input type="number" v-model.number="alertForm.threshold" placeholder="90" />%</div>
           </div>
-          <div class="af-row"><label>冷却时间(分钟)</label><input type="number" v-model.number="alertForm.cooldown_min" placeholder="30" /></div>
+          <div class="af-row"><label>{{ t('feature.cooldown') }}</label><input type="number" v-model.number="alertForm.cooldown_min" placeholder="30" /></div>
           <div class="af-row"><label>Webhook URL</label><input v-model="alertForm.webhook_url" placeholder="https://hooks.slack.com/..." /></div>
-          <div class="af-hint">支持 Slack/钉钉/企业微信/自定义 Webhook</div>
+          <div class="af-hint">{{ t('feature.webhookSupport') }}</div>
         </div>
         <template #footer>
-          <el-button @click="showAlertDialog = false">取消</el-button>
-          <el-button type="primary" @click="createRule">创建</el-button>
+          <el-button @click="showAlertDialog = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" @click="createRule">{{ t('feature.create') }}</el-button>
         </template>
       </el-dialog>
     </div>
@@ -73,55 +73,55 @@
     <!-- Cron Tab -->
     <div v-if="tab==='cron'" class="tab-content">
       <div class="section-header">
-        <h3>定时任务</h3>
-        <button class="btn-primary" @click="showCronDialog = true">添加任务</button>
+        <h3>{{ t('feature.scheduledTasks') }}</h3>
+        <button class="btn-primary" @click="showCronDialog = true">{{ t('feature.addTask') }}</button>
       </div>
       <div v-loading="cronLoading" class="rule-list">
         <div v-for="t in cronTasks" :key="t.id" class="rule-card dg-card">
           <div class="rc-left">
-            <span class="rc-enabled" :class="{on: t.enabled}" @click="toggleCron(t.id)">{{ t.enabled ? '启用' : '禁用' }}</span>
+            <span class="rc-enabled" :class="{on: t.enabled}" @click="toggleCron(t.id)">{{ t.enabled ? $t('feature.enabled') : $t('feature.disabled') }}</span>
             <div>
               <div class="rc-name">{{ t.name }}</div>
-              <div class="rc-desc">每 {{ t.interval }} · {{ t.node_ids?.length || 0 }} 个节点</div>
-              <div class="rc-time">下次: {{ formatTime(t.next_run) }} · 上次: {{ t.last_run ? formatTime(t.last_run) : '从未' }}</div>
+              <div class="rc-desc">{{ $t('feature.everyInterval', { interval: t.interval, count: t.node_ids?.length || 0 }) }}</div>
+              <div class="rc-time">{{ $t('feature.nextRun', { next: formatTime(t.next_run), last: t.last_run ? formatTime(t.last_run) : $t('feature.never') }) }}</div>
             </div>
           </div>
           <div class="rc-right">
-            <button class="rc-delete" @click="deleteCron(t.id)">删除</button>
+            <button class="rc-delete" @click="deleteCron(t.id)">{{ $t('feature.deleteFile') }}</button>
           </div>
         </div>
-        <div v-if="!cronLoading && cronTasks.length === 0" class="empty-text">暂无定时任务</div>
+        <div v-if="!cronLoading && cronTasks.length === 0" class="empty-text">{{ t('feature.noScheduledTasks') }}</div>
       </div>
 
       <!-- Cron Dialog -->
-      <el-dialog v-model="showCronDialog" title="添加定时任务" width="540px">
+      <el-dialog v-model="showCronDialog" :title="t('feature.addScheduledTask')" width="540px">
         <div class="alert-form">
-          <div class="af-row"><label>任务名称</label><input v-model="cronForm.name" placeholder="如：每日清理日志" /></div>
-          <div class="af-row"><label>执行间隔</label>
+          <div class="af-row"><label>{{ t('feature.taskName') }}</label><input v-model="cronForm.name" :placeholder="t('feature.taskExample')" /></div>
+          <div class="af-row"><label>{{ t('feature.executionInterval') }}</label>
             <select v-model="cronForm.interval">
-              <option value="30s">每 30 秒</option>
-              <option value="5m">每 5 分钟</option>
-              <option value="10m">每 10 分钟</option>
-              <option value="30m">每 30 分钟</option>
-              <option value="1h">每 1 小时</option>
-              <option value="6h">每 6 小时</option>
-              <option value="12h">每 12 小时</option>
-              <option value="24h">每 24 小时</option>
+              <option value="30s">{{ t('feature.interval30s') }}</option>
+              <option value="5m">{{ t('feature.interval5m') }}</option>
+              <option value="10m">{{ t('feature.interval10m') }}</option>
+              <option value="30m">{{ t('feature.interval30m') }}</option>
+              <option value="1h">{{ t('feature.interval1h') }}</option>
+              <option value="6h">{{ t('feature.interval6h') }}</option>
+              <option value="12h">{{ t('feature.interval12h') }}</option>
+              <option value="24h">{{ t('feature.interval24h') }}</option>
             </select>
           </div>
-          <div class="af-row"><label>目标节点</label>
+          <div class="af-row"><label>{{ t('feature.targetNodes') }}</label>
             <div class="af-nodes">
               <label v-for="n in onlineNodes" :key="n.id" class="af-node">
                 <input type="checkbox" :value="n.id" v-model="cronForm.node_ids" /> {{ n.name }}
               </label>
             </div>
           </div>
-          <div class="af-row"><label>脚本内容</label></div>
+          <div class="af-row"><label>{{ t('feature.scriptContent') }}</label></div>
           <textarea v-model="cronForm.script" class="af-script" placeholder="#!/bin/bash&#10;find /var/log -mtime +7 -delete" rows="4"></textarea>
         </div>
         <template #footer>
-          <el-button @click="showCronDialog = false">取消</el-button>
-          <el-button type="primary" @click="createCron">创建</el-button>
+          <el-button @click="showCronDialog = false">{{ t('common.cancel') }}</el-button>
+          <el-button type="primary" @click="createCron">{{ t('feature.create') }}</el-button>
         </template>
       </el-dialog>
     </div>
@@ -130,9 +130,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { listNodes, type Node } from '@/api/nodes'
 import * as auto from '@/api/automation'
+
+const { t } = useI18n()
 
 const tab = ref('alerts')
 const nodes = ref<Node[]>([])
@@ -150,7 +153,7 @@ const cronTasks = ref<auto.CronTask[]>([])
 const showCronDialog = ref(false)
 const cronForm = ref({ name: '', interval: '5m', node_ids: [] as string[], script: '' })
 
-function metricLabel(m: string) { return ({ cpu: 'CPU', mem: '内存', disk: '磁盘', node_offline: '节点离线' } as Record<string,string>)[m] || m }
+function metricLabel(m: string) { return ({ cpu: 'CPU', mem: t('common.memory'), disk: t('common.disk'), node_offline: t('feature.nodeOffline') } as Record<string, string>)[m] || m }
 function formatTime(t: string) { if (!t || t.startsWith('0001')) return '—'; return new Date(t).toLocaleString() }
 
 async function loadAlerts() {
@@ -159,9 +162,9 @@ async function loadAlerts() {
 }
 async function createRule() {
   if (!alertForm.value.name) return
-  try { await auto.createAlertRule(alertForm.value); ElMessage.success('规则已创建'); showAlertDialog.value = false; alertForm.value = { name: '', metric: 'cpu', operator: '>', threshold: 90, cooldown_min: 30, webhook_url: '' }; loadAlerts() } catch {}
+  try { await auto.createAlertRule(alertForm.value); ElMessage.success(t('feature.ruleCreated')); showAlertDialog.value = false; alertForm.value = { name: '', metric: 'cpu', operator: '>', threshold: 90, cooldown_min: 30, webhook_url: '' }; loadAlerts() } catch {}
 }
-async function deleteRule(id: string) { await auto.deleteAlertRule(id); ElMessage.success('已删除'); loadAlerts() }
+async function deleteRule(id: string) { await auto.deleteAlertRule(id); ElMessage.success(t('feature.deleted')); loadAlerts() }
 
 async function loadCron() {
   cronLoading.value = true
@@ -169,9 +172,9 @@ async function loadCron() {
 }
 async function createCron() {
   if (!cronForm.value.name || !cronForm.value.script || cronForm.value.node_ids.length === 0) return
-  try { await auto.createCronTask(cronForm.value); ElMessage.success('任务已创建'); showCronDialog.value = false; cronForm.value = { name: '', interval: '5m', node_ids: [], script: '' }; loadCron() } catch {}
+  try { await auto.createCronTask(cronForm.value); ElMessage.success(t('feature.taskCreated')); showCronDialog.value = false; cronForm.value = { name: '', interval: '5m', node_ids: [], script: '' }; loadCron() } catch {}
 }
-async function deleteCron(id: string) { await auto.deleteCronTask(id); ElMessage.success('已删除'); loadCron() }
+async function deleteCron(id: string) { await auto.deleteCronTask(id); ElMessage.success(t('feature.deleted')); loadCron() }
 async function toggleCron(id: string) { await auto.toggleCronTask(id); loadCron() }
 
 onMounted(async () => { nodes.value = await listNodes(); loadAlerts(); loadCron() })

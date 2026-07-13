@@ -2,15 +2,16 @@
   <div class="page-container">
     <div class="page-header">
       <div class="page-title-group">
-        <h2>文件管理</h2>
-        <p class="page-subtitle">通过 SFTP 浏览和管理节点文件系统</p>
+        <h2>{{ t('feature.filesTitle') }}</h2>
+        <p class="page-subtitle">{{ t('feature.filesSubtitle') }}</p>
       </div>
-      <NodeSelector v-model="selectedNode" placeholder="选择节点..." />
+      <NodeSelector v-model="selectedNode" :placeholder="t('feature.selectNode')" />
     </div>
 
     <div v-if="!selectedNode" class="dg-card empty-state-card">
       <svg viewBox="0 0 24 24" width="48" height="48" fill="none" style="opacity:0.2;margin-bottom:12px"><path d="M3 7l2-3h6l2 3h8v12H3V7z" stroke="currentColor" stroke-width="1.5"/></svg>
-      <p style="color:var(--dg-text-faint)">请选择一个节点以浏览文件系统</p>
+      <p style="color:var(--dg-text-faint)">{{ t('feature.selectNodeForFiles') }}</p>
+      <button class="btn-primary" @click="$router.push('/nodes')">{{ t('feature.addNode') }}</button>
     </div>
 
     <div v-else class="dg-card sftp-panel">
@@ -25,21 +26,21 @@
           </template>
         </div>
         <div class="toolbar-actions">
-          <button class="tool-btn" @click="showMkdir = true" title="新建文件夹">
+          <button class="tool-btn" @click="showMkdir = true" :title="t('feature.createFolder')" :aria-label="t('feature.createFolder')">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M3 7l2-3h6l2 3h8v12H3V7z" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6M9 14h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
-          <label class="tool-btn tool-upload" title="上传文件">
+          <label class="tool-btn tool-upload" :title="t('feature.uploadFile')" :aria-label="t('feature.uploadFile')">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5-5 5 5M12 5v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <input type="file" multiple @change="handleUpload" style="display:none" />
           </label>
-          <button class="tool-btn" @click="loadFiles" title="刷新">
+          <button class="tool-btn" @click="loadFiles" :title="t('common.refresh')" :aria-label="t('common.refresh')">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
       </div>
 
       <div class="file-list" v-loading="loading">
-        <div v-if="files.length === 0 && !loading" class="file-empty">空目录</div>
+        <div v-if="files.length === 0 && !loading" class="file-empty">{{ t('feature.emptyDirectory') }}</div>
         <div v-for="f in files" :key="f.path" class="file-row" :class="{ dir: f.is_dir }" @dblclick="f.is_dir ? navigateTo(f.path) : null">
           <div class="f-icon">
             <svg v-if="f.is_dir" viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M3 7l2-3h6l2 3h8v12H3V7z" stroke="var(--dg-cyan)" stroke-width="1.8"/></svg>
@@ -49,23 +50,23 @@
           <div class="f-size">{{ f.is_dir ? '—' : formatSize(f.size) }}</div>
           <div class="f-time">{{ formatTime(f.mod_time) }}</div>
           <div class="f-actions" v-if="!f.is_dir">
-            <button class="f-btn" @click.stop="handleDownload(f)" title="下载">
+            <button class="f-btn" @click.stop="handleDownload(f)" :title="t('feature.downloadFile')" :aria-label="t('feature.downloadFile')">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 5v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             </button>
           </div>
           <div class="f-actions" v-else></div>
-          <button class="f-btn f-delete" @click.stop="handleDelete(f)" title="删除">
+          <button class="f-btn f-delete" @click.stop="handleDelete(f)" :title="t('feature.deleteFile')" :aria-label="t('feature.deleteFile')">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
       </div>
     </div>
 
-    <el-dialog v-model="showMkdir" title="新建文件夹" width="360px">
-      <el-input v-model="mkdirName" placeholder="文件夹名称" @keyup.enter="doMkdir" />
+    <el-dialog v-model="showMkdir" :title="t('feature.createFolder')" width="360px">
+      <el-input v-model="mkdirName" :placeholder="t('feature.folderName')" @keyup.enter="doMkdir" />
       <template #footer>
-        <el-button @click="showMkdir = false">取消</el-button>
-        <el-button type="primary" @click="doMkdir">创建</el-button>
+        <el-button @click="showMkdir = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="doMkdir">{{ t('feature.create') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -73,6 +74,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import NodeSelector from '@/components/NodeSelector.vue'
 import { listFiles, uploadFile, deleteFile, mkdir, downloadFile, type FileEntry } from '@/api/sftp'
@@ -83,6 +85,7 @@ const files = ref<FileEntry[]>([])
 const loading = ref(false)
 const showMkdir = ref(false)
 const mkdirName = ref('')
+const { t } = useI18n()
 
 const pathSegments = computed(() => {
   const parts = currentPath.value.split('/').filter(Boolean)
@@ -131,7 +134,7 @@ async function handleUpload(e: Event) {
   for (const file of Array.from(input.files)) {
     try {
       await uploadFile(selectedNode.value, currentPath.value, file)
-      ElMessage.success(`已上传: ${file.name}`)
+      ElMessage.success(t('feature.uploaded', { name: file.name }))
     } catch {}
   }
   input.value = ''
@@ -139,9 +142,9 @@ async function handleUpload(e: Event) {
 }
 
 async function handleDelete(f: FileEntry) {
-  await ElMessageBox.confirm(`确定删除 ${f.name}？`, '', { type: 'warning' })
+  await ElMessageBox.confirm(t('feature.deleteFileConfirm', { name: f.name }), '', { type: 'warning' })
   await deleteFile(selectedNode.value, f.path)
-  ElMessage.success('已删除')
+  ElMessage.success(t('feature.deleted'))
   loadFiles()
 }
 
@@ -149,7 +152,7 @@ async function doMkdir() {
   if (!mkdirName.value) return
   const fullPath = currentPath.value === '/' ? '/' + mkdirName.value : currentPath.value + '/' + mkdirName.value
   await mkdir(selectedNode.value, fullPath)
-  ElMessage.success('已创建')
+  ElMessage.success(t('feature.created'))
   showMkdir.value = false
   mkdirName.value = ''
   loadFiles()

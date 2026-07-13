@@ -1,13 +1,14 @@
 <template>
   <div class="app-layout">
-    <aside class="sidebar" :class="{ collapsed: auth.sidebarCollapsed }">
+    <button v-if="mobileNavOpen" class="sidebar-backdrop" :aria-label="t('common.closeNavigation')" @click="closeMobileNav"></button>
+    <aside class="sidebar" :class="{ collapsed: auth.sidebarCollapsed, 'mobile-open': mobileNavOpen }">
       <div class="sidebar-brand">
         <div class="brand-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z" fill="currentColor"/></svg></div>
         <transition name="fade"><span v-show="!auth.sidebarCollapsed" class="brand-name">DeviceGrid</span></transition>
       </div>
       <div class="brand-line"></div>
       <nav class="sidebar-nav">
-        <router-link v-for="item in menuItems" :key="item.path" :to="item.path" class="nav-link" active-class="active">
+        <router-link v-for="item in menuItems" :key="item.path" :to="item.path" class="nav-link" active-class="active" @click="closeMobileNav">
           <div class="nav-icon" v-html="item.svg"></div>
           <transition name="fade"><span v-show="!auth.sidebarCollapsed" class="nav-text">{{ t(item.title) }}</span></transition>
           <div class="nav-indicator"></div>
@@ -22,6 +23,9 @@
 
     <div class="main-area">
       <header class="app-header">
+        <button class="mobile-menu-btn" type="button" :aria-label="t('common.openNavigation')" :aria-expanded="mobileNavOpen" @click="toggleMobileNav">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
         <h1 class="header-title">{{ currentTitle }}</h1>
         <div class="header-right">
           <div class="stat-pills">
@@ -73,11 +77,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
-import { listNodes, type Node } from '@/api/nodes'
+import { useFleetStore } from '@/stores/fleet'
 import ThemeSwitcher from '@/components/ThemeSwitcher.vue'
 import client from '@/api/client'
 import { setLocale } from '@/i18n'
@@ -95,7 +100,9 @@ async function loadVersion() {
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const nodes = ref<Node[]>([])
+const fleet = useFleetStore()
+const { nodes } = storeToRefs(fleet)
+const mobileNavOpen = ref(false)
 
 const icons: Record<string, string> = {
   Kanban: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="3" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="14" y="12" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="16" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg>',
@@ -132,6 +139,18 @@ function changeLocale(value: string) {
   if (value === 'zh-CN' || value === 'en-US') setLocale(value)
 }
 
+function closeMobileNav() {
+  mobileNavOpen.value = false
+}
+
+function toggleMobileNav() {
+  mobileNavOpen.value = !mobileNavOpen.value
+}
+
+function closeMobileNavOnEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeMobileNav()
+}
+
 function handleCommand(cmd: string) {
   if (cmd === 'logout') {
     ElMessageBox.confirm(t('confirm.signOut'), '', { confirmButtonText: t('common.signOut'), cancelButtonText: t('common.cancel'), type: 'warning' })
@@ -139,13 +158,13 @@ function handleCommand(cmd: string) {
   } else if (cmd === 'settings') router.push('/settings')
 }
 
-let pt: ReturnType<typeof setInterval> | null = null
-onMounted(() => { loadVersion(); (async () => { try { nodes.value = await listNodes() } catch {} })(); pt = setInterval(async () => { try { nodes.value = await listNodes() } catch {} }, 15000) })
-onBeforeUnmount(() => { if (pt) clearInterval(pt) })
+onMounted(() => { window.addEventListener('keydown', closeMobileNavOnEscape); loadVersion(); fleet.start() })
+onBeforeUnmount(() => { window.removeEventListener('keydown', closeMobileNavOnEscape); fleet.stop() })
 </script>
 
 <style scoped lang="scss">
 .app-layout { display: flex; height: 100vh; overflow: hidden; }
+.sidebar-backdrop { display: none; }
 
 .sidebar {
   width: var(--dg-sidebar-w); background: var(--dg-bg-2); backdrop-filter: blur(20px);
@@ -190,6 +209,7 @@ onBeforeUnmount(() => { if (pt) clearInterval(pt) })
   height: var(--dg-header-h); background: var(--dg-bg-2); backdrop-filter: blur(16px);
   display: flex; align-items: center; justify-content: space-between; padding: 0 28px;
   border-bottom: 1px solid var(--dg-border); z-index: 50; flex-shrink: 0;
+  .mobile-menu-btn { display: none; }
   .header-title { font-size: 17px; font-weight: 600; color: var(--dg-text); letter-spacing: -0.01em; }
   .header-right { display: flex; align-items: center; gap: 14px; }
   .stat-pills { display: flex; gap: 6px; }
@@ -229,4 +249,29 @@ onBeforeUnmount(() => { if (pt) clearInterval(pt) })
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 767px) {
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 150; border: 0; background: rgba(0, 0, 0, 0.56); }
+  .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 200; width: min(280px, 84vw); transform: translateX(-100%); transition: transform 0.24s ease; box-shadow: 18px 0 40px rgba(0, 0, 0, 0.32); }
+  .sidebar.collapsed { width: min(280px, 84vw); }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-footer { display: none; }
+  .main-area { width: 100%; min-width: 0; }
+  .app-header { height: 56px; padding: 0 12px; gap: 10px; }
+  .app-header .mobile-menu-btn { width: 36px; height: 36px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--dg-border); border-radius: 8px; background: var(--dg-bg-2); color: var(--dg-text-dim); cursor: pointer; }
+  .app-header .header-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .app-header .header-right { gap: 6px; }
+  .app-header .header-div { display: none; }
+  .app-header .stat-pills { display: none; }
+  .app-header .user-chip { padding: 2px; }
+  .app-header .user-meta { display: none; }
+  .app-footer { padding: 0 10px; justify-content: flex-start; gap: 6px; overflow: hidden; white-space: nowrap; }
+  .app-footer .footer-copy, .app-footer .footer-sep { display: none; }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .app-header { padding: 0 18px; }
+  .app-header .header-right { gap: 8px; }
+  .app-header .pill { padding: 4px 7px; }
+}
 </style>

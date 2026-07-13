@@ -11,8 +11,17 @@ export interface UserInfo {
   role: string
 }
 
+export interface SetupStatus {
+  initial_setup: boolean
+}
+
 export async function login(req: LoginRequest): Promise<UserInfo> {
   const { data } = await client.post('/auth/login', req)
+  return data.data
+}
+
+export async function getSetupStatus(): Promise<SetupStatus> {
+  const { data } = await client.get('/auth/setup')
   return data.data
 }
 

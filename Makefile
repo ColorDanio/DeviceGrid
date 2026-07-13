@@ -1,4 +1,4 @@
-.PHONY: build build-server build-agent dev-server dev-web test lint lint-web typecheck-web proto package clean migrate-create migrate-up migrate-down frontend
+.PHONY: build build-server build-agent dev-server dev-web test test-web lint lint-web typecheck-web bundle-check route-report proto package release-preflight clean migrate-create migrate-up migrate-down frontend
 
 GOCMD=go
 GOFLAGS=-trimpath
@@ -48,6 +48,9 @@ dev-web:
 test:
 	$(GOCMD) test -v -race -timeout 120s ./...
 
+test-web:
+	cd $(WEB_DIR) && npm run test
+
 test-cover:
 	$(GOCMD) test -race -coverprofile=coverage.out ./...
 
@@ -63,6 +66,12 @@ lint-web:
 
 typecheck-web:
 	cd $(WEB_DIR) && npm run typecheck
+
+bundle-check:
+	cd $(WEB_DIR) && npm run check:bundle
+
+route-report:
+	cd $(WEB_DIR) && npm run report:routes
 
 # ============================================================
 # Protobuf
@@ -92,6 +101,9 @@ package: embed-frontend build-server build-agent-all
 	@echo "Package complete:"
 	@echo "  Server: $(SERVER_BIN)"
 	@echo "  Agent:  dist/agent-linux-amd64, dist/agent-linux-arm64"
+
+release-preflight: build-server
+	bash scripts/release-preflight.sh $(SERVER_BIN)
 
 # ============================================================
 # Electron Desktop App

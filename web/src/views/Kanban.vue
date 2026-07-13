@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <div class="kpi-row">
+    <div v-if="nodes.length > 0" class="kpi-row">
       <div class="kpi-card" v-for="k in kpis" :key="k.label">
         <div class="kpi-label">{{ k.label }}</div>
         <div class="kpi-value" :style="{ color: k.color }">{{ k.value }}<span class="kpi-unit">{{ k.unit }}</span></div>
@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <div class="section-header">
+    <div v-if="nodes.length > 0" class="section-header">
       <h3>{{ t('common.nodeStatus') }}</h3>
       <div class="section-tools">
         <div class="filter-chips">
@@ -17,11 +17,11 @@
           <button class="fchip" :class="{ active: filterStatus === 'offline' }" @click="filterStatus = 'offline'">{{ t('common.offline') }} {{ offlineCount }}</button>
           <button class="fchip" :class="{ active: filterStatus === 'untrusted' }" @click="filterStatus = 'untrusted'">{{ t('common.untrusted') }} {{ untrustedCount }}</button>
         </div>
-        <button class="icon-btn" :aria-label="t('common.refresh')" :class="{ spinning: loading }" @click="loadNodes"><svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2"/><path d="M3.5 9a9 9 0 0114.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15" stroke="currentColor" stroke-width="2"/></svg></button>
+        <button class="icon-btn" :aria-label="t('common.refresh')" :class="{ spinning: loading }" @click="fleet.refresh"><svg viewBox="0 0 24 24" width="14" height="14" fill="none"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" stroke-width="2"/><path d="M3.5 9a9 9 0 0114.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15" stroke="currentColor" stroke-width="2"/></svg></button>
       </div>
     </div>
 
-    <div v-loading="loading" class="node-grid">
+    <div v-if="nodes.length > 0" v-loading="loading" class="node-grid">
       <div v-for="n in filteredNodes" :key="n.id" class="node-card" @click="$router.push(`/nodes/${n.id}`)">
         <div class="nc-head">
           <div class="nc-title">
@@ -86,22 +86,27 @@
       </div>
     </div>
 
-    <div v-if="!loading && filteredNodes.length === 0" class="empty"><p>{{ t('common.noNodes') }}</p></div>
+    <div v-if="!loading && nodes.length === 0" class="empty first-node-empty">
+      <svg viewBox="0 0 24 24" width="44" height="44" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 9h8M8 14h3M17 14h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <h3>{{ t('common.firstNodeTitle') }}</h3>
+      <p>{{ t('common.firstNodeDescription') }}</p>
+      <button class="btn-primary" @click="$router.push('/nodes')">{{ t('common.addNode') }}</button>
+    </div>
+    <div v-else-if="!loading && filteredNodes.length === 0" class="empty"><p>{{ t('common.noNodes') }}</p></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
-import { listNodes, getMetrics, type Node, type NodeMetrics } from '@/api/nodes'
+import { type NodeMetrics } from '@/api/nodes'
+import { useFleetStore } from '@/stores/fleet'
 
-const loading = ref(false)
 const { t } = useI18n()
-const nodes = ref<Node[]>([])
-const metrics = ref<Record<string, NodeMetrics>>({})
+const fleet = useFleetStore()
+const { nodes, metrics, loading } = storeToRefs(fleet)
 const filterStatus = ref('')
-let nodeTimer: ReturnType<typeof setInterval> | null = null
-let metricTimer: ReturnType<typeof setInterval> | null = null
 
 const onlineCount = computed(() => nodes.value.filter(n => n.status === 'online').length)
 const offlineCount = computed(() => nodes.value.filter(n => n.status === 'offline' || n.status === 'error').length)
@@ -141,31 +146,9 @@ function loadLevel(pct: number): string { if (pct >= 85) return 'critical'; if (
 function fmtBytes(b: number) { if (!b) return '0B'; if (b < 1024) return b+'B'; if (b < 1048576) return (b/1024).toFixed(0)+'KB'; if (b < 1073741824) return (b/1048576).toFixed(0)+'MB'; if (b < 1099511627776) return (b/1073741824).toFixed(0)+'GB'; return (b/1099511627776).toFixed(1)+'TB' }
 function fmtRate(bytes: number) { if (!bytes) return '0B'; if (bytes < 1024) return bytes+'B'; if (bytes < 1048576) return (bytes/1024).toFixed(1)+'KB'; if (bytes < 1073741824) return (bytes/1048576).toFixed(1)+'MB'; if (bytes < 1099511627776) return (bytes/1073741824).toFixed(2)+'GB'; return (bytes/1099511627776).toFixed(1)+'TB' }
 
-async function loadNodes() { loading.value = true; try { nodes.value = await listNodes() } finally { loading.value = false }; fetchAllMetrics() }
-
-// Fetch metrics for all online nodes in parallel
-async function fetchAllMetrics() {
-  const onlineNodes = nodes.value.filter(n => n.status === 'online')
-  await Promise.allSettled(onlineNodes.map(async n => {
-    try { metrics.value[n.id] = await getMetrics(n.id) } catch {}
-  }))
-}
-
-// Refresh only existing metrics
-async function refreshMetrics() {
-  const toRefresh = nodes.value.filter(n => n.status === 'online' && metrics.value[n.id])
-  // Don't re-fetch nodes that were updated < 10s ago
-  await Promise.allSettled(toRefresh.map(async n => {
-    try { metrics.value[n.id] = await getMetrics(n.id) } catch {}
-  }))
-}
-
 onMounted(() => {
-  loadNodes()
-  nodeTimer = setInterval(loadNodes, 30000)
-  metricTimer = setInterval(refreshMetrics, 20000)
+  fleet.start()
 })
-onBeforeUnmount(() => { if (nodeTimer) clearInterval(nodeTimer); if (metricTimer) clearInterval(metricTimer) })
 </script>
 
 <style scoped lang="scss">
@@ -232,6 +215,10 @@ onBeforeUnmount(() => { if (nodeTimer) clearInterval(nodeTimer); if (metricTimer
 @keyframes pulse-text { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .empty { padding: 60px; text-align: center; p { color: var(--dg-text-faint); } }
+.first-node-empty { min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--accent);
+  h3 { margin: 14px 0 6px; font-size: 18px; color: var(--dg-text); }
+  p { max-width: 420px; margin: 0 0 18px; line-height: 1.6; }
+}
 @media (max-width: 1400px) { .kpi-row { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 1024px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 </style>

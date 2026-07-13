@@ -17,12 +17,13 @@ import (
 )
 
 type AuthHandler struct {
-	repos repo.Repositories
-	jm    *auth.JWTManager
+	repos         repo.Repositories
+	jm            *auth.JWTManager
+	setupComplete func()
 }
 
-func NewAuthHandler(repos repo.Repositories, jm *auth.JWTManager) *AuthHandler {
-	return &AuthHandler{repos: repos, jm: jm}
+func NewAuthHandler(repos repo.Repositories, jm *auth.JWTManager, setupComplete func()) *AuthHandler {
+	return &AuthHandler{repos: repos, jm: jm, setupComplete: setupComplete}
 }
 
 type loginRequest struct {
@@ -61,6 +62,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"username": user.Username,
 		"role":     user.Role,
 	})
+	if h.setupComplete != nil {
+		h.setupComplete()
+	}
+}
+
+// Setup reports whether this process created the initial administrator account.
+func (h *AuthHandler) Setup(c *gin.Context) {
+	initialSetup, _ := c.Get("initial_setup")
+	OK(c, gin.H{"initial_setup": initialSetup == true})
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
@@ -138,17 +148,17 @@ func defaultAdminPassword() string {
 	return "admin123"
 }
 
-func EnsureDefaultUser(repos repo.Repositories) error {
+func EnsureDefaultUser(repos repo.Repositories) (bool, error) {
 	ctx := context.Background()
 	_, err := repos.Users().GetByUsername(ctx, "admin")
 	if err == nil {
-		return nil
+		return false, nil
 	}
 
 	password := defaultAdminPassword()
 	hash, err := auth.HashPassword(password)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	user := &model.User{
@@ -159,14 +169,14 @@ func EnsureDefaultUser(repos repo.Repositories) error {
 		CreatedAt:    time.Now(),
 	}
 	if err := repos.Users().Create(ctx, user); err != nil {
-		return err
+		return false, err
 	}
 
 	if os.Getenv("DG_DEFAULT_ADMIN_PASSWORD") == "" {
 		fmt.Fprintln(os.Stderr, "WARNING: created default admin/admin123 — set DG_DEFAULT_ADMIN_PASSWORD in production")
 	}
 
-	return nil
+	return true, nil
 }
 
 // BackfillGeo populates geo info for nodes that don't have it yet.

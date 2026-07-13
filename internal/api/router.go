@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -52,10 +53,12 @@ type Router struct {
 	sshMgr       *ssh.Manager
 	metricsCache *node.MetricsCache
 	network      config.NetworkConfig
+	install      config.InstallConfig
 	corsOrigins  []string
 	alertMgr     *node.AlertManager
 	cronSched    *node.CronScheduler
 	deployEngine *deploy.Engine
+	initialSetup atomic.Bool
 }
 
 func NewRouter(
@@ -67,10 +70,12 @@ func NewRouter(
 	sshMgr *ssh.Manager,
 	metricsCache *node.MetricsCache,
 	network config.NetworkConfig,
+	install config.InstallConfig,
 	alertMgr *node.AlertManager,
 	cronSched *node.CronScheduler,
+	initialSetup bool,
 ) *Router {
-	return &Router{
+	router := &Router{
 		repos:        repos,
 		jm:           jm,
 		enc:          enc,
@@ -79,10 +84,13 @@ func NewRouter(
 		sshMgr:       sshMgr,
 		metricsCache: metricsCache,
 		network:      network,
+		install:      install,
 		alertMgr:     alertMgr,
 		cronSched:    cronSched,
 		deployEngine: deploy.NewEngine(repos, transportMgr, hub),
 	}
+	router.initialSetup.Store(initialSetup)
+	return router
 }
 
 func (r *Router) SetCORSOrigins(origins []string) {
@@ -134,7 +142,7 @@ func (r *Router) Setup(mode string) *gin.Engine {
 
 	api := engine.Group("/api")
 	{
-		authHandler := NewAuthHandler(r.repos, r.jm)
+		authHandler := NewAuthHandler(r.repos, r.jm, func() { r.initialSetup.Store(false) })
 		api.GET("/health", func(c *gin.Context) {
 			OK(c, gin.H{"status": "ok"})
 		})
@@ -142,6 +150,10 @@ func (r *Router) Setup(mode string) *gin.Engine {
 		authGroup := api.Group("/auth")
 		{
 			authGroup.POST("/login", RateLimit(10, time.Minute), authHandler.Login)
+			authGroup.GET("/setup", func(c *gin.Context) {
+				c.Set("initial_setup", r.initialSetup.Load())
+				authHandler.Setup(c)
+			})
 		}
 
 		protected := api.Group("")
@@ -347,7 +359,7 @@ func (r *Router) registerSFTPRoutes(rg *gin.RouterGroup) {
 }
 
 func (r *Router) registerDockerRoutes(rg *gin.RouterGroup) {
-	h := NewDockerHandler(r.repos, r.transport, r.hub)
+	h := NewDockerHandler(r.repos, r.transport, r.hub, r.install.DockerMirror)
 	docker := rg.Group("/nodes/:id/docker")
 	{
 		// Read: all users
@@ -390,7 +402,7 @@ func (r *Router) registerDeployRoutes(rg *gin.RouterGroup) {
 }
 
 func (r *Router) registerRKE2Routes(rg *gin.RouterGroup) {
-	h := NewRKE2Handler(r.repos, r.transport, r.hub)
+	h := NewRKE2Handler(r.repos, r.transport, r.hub, r.install.RKE2Mirror)
 	clusters := rg.Group("/clusters")
 	{
 		// Read: all users
