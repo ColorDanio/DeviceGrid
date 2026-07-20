@@ -20,6 +20,12 @@ service TunnelService {
   rpc Connect(stream ClientMessage) returns (stream ServerMessage);
 }
 
+// ===== Docker over Agent =====
+// When a node is tunnel-connected, the server routes Docker list/action
+// operations to the agent, which talks to /var/run/docker.sock directly via
+// the Docker engine HTTP API (no docker CLI parsing). The messages below
+// mirror a small subset of the Engine REST surface; expand as needed.
+
 message Empty {}
 
 message PingRequest {}
@@ -101,6 +107,7 @@ message ClientMessage {
     FileListResponse file_list = 7;
     FileData file_data = 8;
     FileInfoResponse file_info = 9;
+    DockerListResponse docker_list = 10;
   }
 }
 
@@ -115,6 +122,7 @@ message ServerMessage {
     FileDownloadRequest file_download_request = 7;
     FileInfoRequest file_info_request = 8;
     PtyStart pty_start = 9;
+    DockerListRequest docker_list_request = 10;
   }
 }
 
@@ -232,4 +240,27 @@ message FileInfoResponse {
   bool is_dir = 3;
   int64 size = 4;
   string error = 5;
+}
+
+// ===== Docker over Agent =====
+
+message DockerListRequest {
+  string request_id = 1;
+  // kind selects the resource to list. Empty or "containers" → containers;
+  // "images" → images; "networks" → networks; "volumes" → volumes.
+  string kind = 2;
+  // all (containers only): include stopped containers.
+  bool all = 3;
+}
+
+message DockerListResponse {
+  string request_id = 1;
+  // kind mirrors the request, so the server can route by name.
+  string kind = 2;
+  // raw_json carries the Engine REST JSON payload (containers/json, images/json,
+  // networks, volumes). The server parses on its side; the agent stays a thin
+  // proxy. Keeping the wire payload as JSON avoids rebroadcasting the Engine
+  // schema as protobufs and lets newer Engine fields pass through untouched.
+  string raw_json = 3;
+  string error = 4;
 }

@@ -389,3 +389,39 @@ func (t *TunnelTransport) Metrics(ctx context.Context, nodeID string) (transport
 		Uptime:     m.Uptime,
 	}, nil
 }
+
+// DockerList asks a tunnel-connected agent to list containers, images,
+// networks, or volumes via the local Docker Engine REST API and returns the
+// raw JSON body. The caller is responsible for unmarshaling into a typed
+// slice. Returns ErrNotConnected if no agent is registered for the node.
+func (t *TunnelTransport) DockerList(ctx context.Context, nodeID, kind string, all bool) (string, error) {
+	if !t.isAgentOnline(nodeID) {
+		return "", ErrNotConnected
+	}
+	reqID := NewRequestID()
+	ch := RegisterPendingDockerList(reqID)
+
+	if err := t.sendToAgent(nodeID, &agentpb.ServerMessage{
+		Payload: &agentpb.ServerMessage_DockerListRequest{
+			DockerListRequest: &agentpb.DockerListRequest{
+				RequestId: reqID,
+				Kind:      kind,
+				All:       all,
+			},
+		},
+	}); err != nil {
+		return "", fmt.Errorf("send docker list: %w", err)
+	}
+
+	select {
+	case resp := <-ch:
+		if resp.Error != "" {
+			return "", fmt.Errorf("agent docker: %s", resp.Error)
+		}
+		return resp.RawJson, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-time.After(60 * time.Second):
+		return "", fmt.Errorf("docker list timeout")
+	}
+}

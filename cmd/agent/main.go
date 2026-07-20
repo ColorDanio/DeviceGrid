@@ -161,6 +161,8 @@ func connectAndRun(serverAddr, nodeID, nodeName string, interval int, caCertPath
 			go handleFileDownload(stream, nodeID, nodeName, p.FileDownloadRequest)
 		case *agentpb.ServerMessage_FileListRequest:
 			go handleFileList(stream, nodeID, nodeName, p.FileListRequest)
+		case *agentpb.ServerMessage_DockerListRequest:
+			go handleDockerList(stream, nodeID, nodeName, p.DockerListRequest)
 		case *agentpb.ServerMessage_PtyStart:
 			go handlePtyStart(stream, nodeID, nodeName, p.PtyStart)
 		case *agentpb.ServerMessage_PtyInput:

@@ -91,6 +91,8 @@ func (s *TunnelServer) Connect(stream agentpb.TunnelService_ConnectServer) error
 			handleFileData(p.FileData)
 		case *agentpb.ClientMessage_FileInfo:
 			handleFileInfoResponse(p.FileInfo)
+		case *agentpb.ClientMessage_DockerList:
+			handleDockerListResponse(p.DockerList)
 		}
 	}
 }
@@ -240,6 +242,41 @@ func handleFileData(data *agentpb.FileData) {
 
 func handleFileInfoResponse(resp *agentpb.FileInfoResponse) {
 	// handled through file data channels if needed
+}
+
+// ===== Docker list pending tracking =====
+
+var (
+	pendingDockerLists   = make(map[string]chan *agentpb.DockerListResponse)
+	pendingDockerListsMu sync.Mutex
+)
+
+// RegisterPendingDockerList creates a response channel for a DockerListRequest
+// and auto-cleans it up after one minute so a dropped agent cannot leak it.
+func RegisterPendingDockerList(reqID string) chan *agentpb.DockerListResponse {
+	ch := make(chan *agentpb.DockerListResponse, 1)
+	pendingDockerListsMu.Lock()
+	pendingDockerLists[reqID] = ch
+	pendingDockerListsMu.Unlock()
+	go func() {
+		time.Sleep(60 * time.Second)
+		pendingDockerListsMu.Lock()
+		delete(pendingDockerLists, reqID)
+		pendingDockerListsMu.Unlock()
+	}()
+	return ch
+}
+
+func handleDockerListResponse(resp *agentpb.DockerListResponse) {
+	pendingDockerListsMu.Lock()
+	ch, ok := pendingDockerLists[resp.RequestId]
+	if ok {
+		delete(pendingDockerLists, resp.RequestId)
+	}
+	pendingDockerListsMu.Unlock()
+	if ok {
+		ch <- resp
+	}
 }
 
 func GetLastMetrics(nodeID string) (*agentpb.MetricsReport, time.Time, bool) {

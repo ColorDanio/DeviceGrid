@@ -2,6 +2,8 @@ package transport
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 
@@ -9,6 +11,18 @@ import (
 	"github.com/michael/device_grid/internal/model"
 	"github.com/michael/device_grid/internal/store/repo"
 )
+
+// ErrDockerViaTransportUnavailable signals that the active transport cannot
+// route Docker list operations natively (no agent tunnel). Callers should
+// fall back to the CLI-based path.
+var ErrDockerViaTransportUnavailable = errors.New("docker via transport unavailable")
+
+// DockerLister is implemented by transports that can call the local Docker
+// Engine REST API on the node directly (currently the Agent tunnel). The
+// returned string is the raw JSON body from the Engine endpoint.
+type DockerLister interface {
+	DockerList(ctx context.Context, nodeID, kind string, all bool) (string, error)
+}
 
 type ExecResult struct {
 	Stdout   string
@@ -194,4 +208,22 @@ func (m *Manager) ContainerPTY(ctx context.Context, nodeID, containerID string, 
 		return nil, err
 	}
 	return t.ContainerPTY(ctx, nodeID, containerID, cols, rows)
+}
+
+// DockerList opportunistically routes a Docker list call to a tunnel-connected
+// agent. Returns ErrDockerViaTransportUnavailable when no agent tunnel is
+// active for the node so the caller can fall back to the CLI path.
+func (m *Manager) DockerList(ctx context.Context, nodeID, kind string, all bool) (string, error) {
+	if m.tunnelChecker == nil || !m.tunnelChecker(nodeID) {
+		return "", ErrDockerViaTransportUnavailable
+	}
+	lister, ok := m.agentImpl.(DockerLister)
+	if !ok {
+		return "", ErrDockerViaTransportUnavailable
+	}
+	out, err := lister.DockerList(ctx, nodeID, kind, all)
+	if err != nil {
+		return "", fmt.Errorf("docker list via agent: %w", err)
+	}
+	return out, nil
 }

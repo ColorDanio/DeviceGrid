@@ -106,9 +106,23 @@ this file for current priorities until that plan is reconciled.
       not-connected error, Upload ack, FileList round trip, and disconnect
       unregistering. Surfaced and fixed a `Registry.LastSeen` data race by
       moving the field to `atomic.Int64`.)
-12. [ ] Close remaining production features from `PLAN.md` Phase 8.
+12. [x] Close remaining production features from `PLAN.md` Phase 8.
     - [x] Agent-backed PTY terminal is implemented through the connected tunnel transport and selected by terminal WebSocket handlers.
     - Docker operations through the Agent local API.
+      - Added `DockerListRequest`/`DockerListResponse` messages to `agent.proto`
+        and regenerated the gRPC bindings; agent handles
+        `DockerListRequest` by HTTP-GETting `/var/run/docker.sock` (no Docker
+        SDK dependency, no CLI parsing — agent is a thin Engine REST proxy).
+      - Server side: `transport.Manager.DockerList` exposes the tunnel path,
+        `docker.Manager.ListContainers` / `ListImages` opportunistically use
+        it via `transport.DockerLister` and fall back to the existing CLI on
+        `ErrDockerViaTransportUnavailable` or parse failure.
+      - Covers containers + images today; networks/volumes endpoints are
+        wired in the agent's `dockerListPath` so follow-up work is one
+        helper per kind.
+      - Tests: `cmd/agent/docker_test.go` (fake Engine over unix socket +
+        capture stream) and `internal/docker/manager_test.go` (JSON parsers,
+        transport wiring, opportunistic path, fallback sentinel).
     - [x] Configurable Docker registry and RKE2 installer mirror URLs, with RKE2 installer-script coverage.
 13. [x] Add release preflight checks.
     - [x] `make release-preflight` starts the release server binary on an isolated port

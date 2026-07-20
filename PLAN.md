@@ -399,7 +399,7 @@ runs the complete application.
 
 - [~] **8.3 Features**
   - [x] Agent PTY via gRPC tunnel (terminal and container terminal prefer the connected tunnel transport)
-  - [ ] Docker management via Agent (local Docker API)
+  - [x] Docker management via Agent (local Docker API) — `DockerListRequest` over tunnel, containers/images via Engine REST; networks/volumes follow-up
   - [x] Configurable Docker registry and RKE2 installer mirror URLs
   - [x] Terminal search (Ctrl+F) with SearchAddon
   - [x] Batch deployment with file distribution

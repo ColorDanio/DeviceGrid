@@ -2,9 +2,11 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/michael/device_grid/internal/model"
 	"github.com/michael/device_grid/internal/transport"
@@ -145,6 +147,14 @@ type PortInfo struct {
 }
 
 func (m *Manager) ListContainers(ctx context.Context, nodeID string, all bool) ([]ContainerInfo, error) {
+	// Prefer the local Docker Engine API when an agent tunnel is connected.
+	if raw, err := m.transport.DockerList(ctx, nodeID, "containers", all); err == nil {
+		if parsed, perr := parseContainerListJSON(raw); perr == nil {
+			return parsed, nil
+		}
+		// Fall through to CLI on parse failure — Engine schema may have shifted.
+	}
+
 	flag := ""
 	if all {
 		flag = "-a"
@@ -182,6 +192,67 @@ func (m *Manager) ListContainers(ctx context.Context, nodeID string, all bool) (
 		containers = append(containers, c)
 	}
 	return containers, nil
+}
+
+// engineContainer is the subset of /containers/json fields we surface.
+type engineContainer struct {
+	ID     string            `json:"Id"`
+	Names  []string          `json:"Names"`
+	Image  string            `json:"Image"`
+	Status string            `json:"Status"`
+	State  string            `json:"State"`
+	Ports  []enginePort      `json:"Ports"`
+	Labels map[string]string `json:"Labels"`
+}
+
+type enginePort struct {
+	IP          string `json:"IP,omitempty"`
+	PrivatePort uint16 `json:"PrivatePort"`
+	PublicPort  uint16 `json:"PublicPort,omitempty"`
+	Type        string `json:"Type"`
+}
+
+// parseContainerListJSON converts the Docker Engine /containers/json body
+// into the existing ContainerInfo shape so the rest of the manager and API
+// layers do not change.
+func parseContainerListJSON(raw string) ([]ContainerInfo, error) {
+	if strings.TrimSpace(raw) == "" {
+		return []ContainerInfo{}, nil
+	}
+	var ec []engineContainer
+	if err := json.Unmarshal([]byte(raw), &ec); err != nil {
+		return nil, fmt.Errorf("parse containers json: %w", err)
+	}
+	out := make([]ContainerInfo, 0, len(ec))
+	for _, c := range ec {
+		name := ""
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+		info := ContainerInfo{
+			ID:     shortID(c.ID),
+			Name:   name,
+			Image:  c.Image,
+			Status: c.Status,
+			State:  c.State,
+		}
+		for _, p := range c.Ports {
+			info.Ports = append(info.Ports, PortInfo{
+				HostPort:      fmt.Sprintf("%d/%s", p.PublicPort, p.Type),
+				ContainerPort: fmt.Sprintf("%d/%s", p.PrivatePort, p.Type),
+				Protocol:      p.Type,
+			})
+		}
+		out = append(out, info)
+	}
+	return out, nil
+}
+
+func shortID(id string) string {
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
 }
 
 func (m *Manager) ContainerStats(ctx context.Context, nodeID, containerID string) (map[string]string, error) {
@@ -291,6 +362,13 @@ type ImageInfo struct {
 }
 
 func (m *Manager) ListImages(ctx context.Context, nodeID string) ([]ImageInfo, error) {
+	// Prefer the local Docker Engine API when an agent tunnel is connected.
+	if raw, err := m.transport.DockerList(ctx, nodeID, "images", false); err == nil {
+		if parsed, perr := parseImageListJSON(raw); perr == nil {
+			return parsed, nil
+		}
+	}
+
 	result, err := m.transport.Exec(ctx, nodeID,
 		dockerBin+`$DPATH images --format '{{.ID}}|{{.Repository}}:{{.Tag}}|{{.Size}}|{{.CreatedAt}}'`)
 	if err != nil {
@@ -314,6 +392,58 @@ func (m *Manager) ListImages(ctx context.Context, nodeID string) ([]ImageInfo, e
 		})
 	}
 	return images, nil
+}
+
+// engineImage is the subset of /images/json fields we surface.
+type engineImage struct {
+	ID       string   `json:"Id"`
+	RepoTags []string `json:"RepoTags"`
+	Size     int64    `json:"Size"`
+	Created  int64    `json:"Created"`
+}
+
+// parseImageListJSON converts the Docker Engine /images/json body into the
+// existing ImageInfo shape. Falls back to the CLI path on parse failure.
+func parseImageListJSON(raw string) ([]ImageInfo, error) {
+	if strings.TrimSpace(raw) == "" {
+		return []ImageInfo{}, nil
+	}
+	var ei []engineImage
+	if err := json.Unmarshal([]byte(raw), &ei); err != nil {
+		return nil, fmt.Errorf("parse images json: %w", err)
+	}
+	out := make([]ImageInfo, 0, len(ei))
+	for _, img := range ei {
+		tags := strings.Join(img.RepoTags, ", ")
+		out = append(out, ImageInfo{
+			ID:      shortID(img.ID),
+			Tags:    tags,
+			Size:    humanSize(img.Size),
+			Created: unixToCreated(img.Created),
+		})
+	}
+	return out, nil
+}
+
+func humanSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%dB", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func unixToCreated(unixSec int64) string {
+	if unixSec <= 0 {
+		return ""
+	}
+	t := time.Unix(unixSec, 0)
+	return t.Format("2006-01-02 15:04:05 -0700 MST")
 }
 
 func (m *Manager) PullImage(ctx context.Context, nodeID, image string) (<-chan transport.StreamChunk, error) {
