@@ -1,6 +1,6 @@
 # DeviceGrid Task Tracker
 
-Last reviewed: 2026-07-12
+Last reviewed: 2026-07-20
 
 This is the active development tracker. `PLAN.md` records the original delivery plan,
 but its phase-level checkboxes are no longer in sync with the implemented code; use
@@ -95,18 +95,92 @@ this file for current priorities until that plan is reconciled.
    - [x] Added focused coverage for the auth store, API error-message handling, and
      the dashboard's first-fleet empty state.
    - [x] Added `npm run test`, `make test-web`, and the frontend CI test step.
-11. [ ] Add integration coverage for transport boundaries.
-   - Exercise SSH execution and SFTP against an ephemeral target.
-   - Exercise Agent gRPC tunnel request/response behavior.
+11. [x] Add integration coverage for transport boundaries.
+    - Exercise SSH execution and SFTP against an ephemeral target.
+      (`internal/ssh/integration_test.go`: in-process SSH + SFTP server backed
+      by a temp dir; covers Exec, non-zero exit, pool reuse, Ping, Upload
+      via SCP, Download via `cat`, Facts parsing, and SFTPListDir.)
+    - Exercise Agent gRPC tunnel request/response behavior.
+      (`internal/agent/tunnel_integration_test.go`: real gRPC TunnelServer +
+      fake agent client stream; covers Exec round trip, non-zero exit,
+      not-connected error, Upload ack, FileList round trip, and disconnect
+      unregistering. Surfaced and fixed a `Registry.LastSeen` data race by
+      moving the field to `atomic.Int64`.)
 12. [ ] Close remaining production features from `PLAN.md` Phase 8.
-   - [x] Agent-backed PTY terminal is implemented through the connected tunnel transport and selected by terminal WebSocket handlers.
-   - Docker operations through the Agent local API.
-   - [x] Configurable Docker registry and RKE2 installer mirror URLs, with RKE2 installer-script coverage.
+    - [x] Agent-backed PTY terminal is implemented through the connected tunnel transport and selected by terminal WebSocket handlers.
+    - Docker operations through the Agent local API.
+    - [x] Configurable Docker registry and RKE2 installer mirror URLs, with RKE2 installer-script coverage.
 13. [x] Add release preflight checks.
-   - [x] `make release-preflight` starts the release server binary on an isolated port
-     and verifies `/healthz` plus embedded SPA fallback serving.
-   - [x] Release CI verifies the Debian package metadata and expected server, agent,
-     config, and systemd paths before publishing artifacts.
+    - [x] `make release-preflight` starts the release server binary on an isolated port
+      and verifies `/healthz` plus embedded SPA fallback serving.
+    - [x] Release CI verifies the Debian package metadata and expected server, agent,
+      config, and systemd paths before publishing artifacts.
+
+## Future Priorities (creative direction, added 2026-07-20)
+
+Scope note: these are larger feature tracks. Each is broken into a thin MVP slice
+suitable for landing in one PR, followed by iteration steps. Pick one at a time;
+do not block 11/12 on these.
+
+14. [ ] Add a fleet metrics time-series store and graph view.
+    - Persist per-node CPU / memory / disk / container-count samples at a
+      configurable cadence (`metrics.storage_interval`, default 30s).
+    - Add `MetricRepository` to `internal/store/repo/` with SQLite (rolled
+      bucket table) and MongoDB implementations; backfill `ALTER TABLE` per
+      AGENTS.md schema rules.
+    - Add `GET /api/nodes/:id/metrics?range=1h|24h|7d` returning downsampled
+      series for charts.
+    - Frontend: sparkline on the Kanban card and a history chart on Node
+      Detail (lightweight inline SVG first; defer chart libs until budgeted).
+    - Migrate `internal/api/alerts.go` threshold evaluation from the latest
+      gauge sample to the stored series (avg-over-window, sustained-for).
+
+15. [ ] Add a reusable blueprint / topology library.
+    - New `Blueprint` model: name, version, kind (compose | script | rke2 |
+      systemd), body (parameterized text), variable schema (JSON-Schema-lite).
+    - Repository + CRUD endpoints under `/api/blueprints`.
+    - "Apply blueprint" endpoint: pick nodes, fill variables, compile to a
+      `DeployTask` or `Cluster` create payload.
+    - Frontend: library browser, variable form generated from schema,
+      apply-to-nodes wizard reusing the existing `NodeSelector`.
+    - Optional later: Git-backed import (`blueprints.git.url` config) with
+      pull-on-startup and a manual refresh button.
+
+16. [ ] Add runbook / playbook automation.
+    - `Playbook` model: ordered list of steps (`exec` | `upload` | `wait` |
+      `assert`), per-step `on_fail` (abort | continue | retry(n)), target
+      scope (node set or tag query).
+    - Engine reuses the deploy worker with a new task type, keeps per-node,
+      per-step state, and streams output over `/ws/playbook/:runID`.
+    - Frontend: playbook editor with step palette, run view with per-node
+      step progress and live output.
+    - Ship 2-3 starter playbooks in `examples/playbooks/` (collect diagnostics,
+      rotate SSH key fleet-wide, drain + restart docker).
+
+17. [ ] Add systemd / cron fleet management.
+    - New transport surface in `internal/transport/transport.go`:
+      `SystemdList`, `SystemdAction`, `TimerList`, `CronList`, `CronSet`.
+    - Implement for SSH (parse `systemctl list-units --output=json`,
+      `systemctl list-timers`, edit `/etc/cron.d` files) and for Agent
+      (call `systemd` D-Bus or shell out; cron via file distribution).
+    - API under `/api/nodes/:id/systemd` and `/api/nodes/:id/cron`.
+    - Frontend: per-node systemd unit table with start/stop/enable/disable,
+      timers card, cron editor with diff preview.
+    - Reuses existing audit log; every state-changing call records an entry.
+
+18. [ ] Add OpenTelemetry tracing across transports.
+    - Add `otel.go` in `internal/config`: exporter endpoint from
+      `DG_OTEL_EXPORTER_OTLP_ENDPOINT`, sample ratio, service name; disabled
+      when endpoint is empty.
+    - Wrap `transport.Manager` with an otel-aware decorator that opens a span
+      per `Exec`/`Upload`/`Ping`/`PTY`/`Metrics`, including node ID and
+      transport kind (`ssh` | `agent-tunnel` | `agent-grpc`) as attributes.
+    - Propagate trace context over the Agent gRPC tunnel via metadata so a
+      single user action maps to a server-side and agent-side span tree.
+    - For SSH, fall back to `traceparent` env var injection on the command
+      line where reasonable; otherwise correlate by request ID in logs.
+    - Optional: `/debug/trace/last/:taskID` summarizes the trace for the
+      most recent deploy or playbook run.
 
 ## Working Rules
 

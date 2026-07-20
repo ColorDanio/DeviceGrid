@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -11,8 +12,21 @@ type AgentConnection struct {
 	NodeID   string
 	NodeName string
 	Stream   AgentStream
-	LastSeen time.Time
-	Cancel   context.CancelFunc
+	// lastSeenNanos stores the last activity time as unix nanos. Accessed
+	// concurrently from Get/Touch (read+write) and StaleAgents (read), so it
+	// must be atomic — the struct field is otherwise shared via the registry
+	// map under an RLock only.
+	lastSeenNanos atomic.Int64
+	Cancel        context.CancelFunc
+}
+
+// LastSeen returns the last activity timestamp. Safe for concurrent callers.
+func (c *AgentConnection) LastSeen() time.Time {
+	return time.Unix(0, c.lastSeenNanos.Load())
+}
+
+func (c *AgentConnection) touch() {
+	c.lastSeenNanos.Store(time.Now().UnixNano())
 }
 
 type AgentStream interface {
@@ -43,9 +57,9 @@ func (r *Registry) Register(nodeID, nodeName string, stream AgentStream) context
 		NodeID:   nodeID,
 		NodeName: nodeName,
 		Stream:   stream,
-		LastSeen: time.Now(),
 		Cancel:   cancel,
 	}
+	conn.touch()
 	r.conns[nodeID] = conn
 	slog.Info("agent registered", "node_id", nodeID, "name", nodeName)
 	return ctx
@@ -66,7 +80,7 @@ func (r *Registry) Get(nodeID string) (*AgentConnection, bool) {
 	defer r.mu.RUnlock()
 	conn, ok := r.conns[nodeID]
 	if ok {
-		conn.LastSeen = time.Now()
+		conn.touch()
 	}
 	return conn, ok
 }
@@ -102,7 +116,7 @@ func (r *Registry) Touch(nodeID string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if conn, ok := r.conns[nodeID]; ok {
-		conn.LastSeen = time.Now()
+		conn.touch()
 	}
 }
 
@@ -112,7 +126,7 @@ func (r *Registry) StaleAgents(timeout time.Duration) []string {
 	var stale []string
 	cutoff := time.Now().Add(-timeout)
 	for id, conn := range r.conns {
-		if conn.LastSeen.Before(cutoff) {
+		if conn.LastSeen().Before(cutoff) {
 			stale = append(stale, id)
 		}
 	}
